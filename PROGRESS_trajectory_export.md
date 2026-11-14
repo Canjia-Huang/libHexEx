@@ -111,7 +111,7 @@ cmake -S . -B build            # 自动发现 ~/geogram
 cmake --build build -j8
 
 # 命令行程序（推荐）
-./build/Build/bin/hexex --in tests/testdata/fiveadvanced.hexex \
+./build/bin/hexex --in tests/testdata/fiveadvanced.hexex \
     --out-trajectory /tmp/fiveadvanced --check
 #  -> /tmp/fiveadvanced_refined.geogram
 #  -> /tmp/fiveadvanced_hex.geogram
@@ -119,11 +119,11 @@ cmake --build build -j8
 # --out <file.ovm> 写 OpenVolumeMesh；不加 geogram 参数时只提取、不建轨迹。
 
 # 完整校验 demo（写出 + 回读逐项校验）
-./build/Build/bin/export_trajectory tests/testdata/fiveadvanced.hexex /tmp/fiveadvanced
+./build/bin/export_trajectory tests/testdata/fiveadvanced.hexex /tmp/fiveadvanced
 
 # 单元测试
-cd build/Build && ./unittests --gtest_filter='Trajectory.*'
-# 或（ctest，工作目录 build/Build）
+cd build && ./bin/unittests --gtest_filter='Trajectory.*'
+# 或：ctest --test-dir build（工作目录 build）
 ```
 
 可选开关：`-DHEXEX_WITH_GEOGRAM=OFF` 关闭 geogram（核心库和原有测试不受影响）；`-DGEOGRAM_ROOT=/path/to/geogram` 指定源码树。

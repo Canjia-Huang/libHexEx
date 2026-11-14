@@ -94,7 +94,7 @@ cmake -S . -B build
 cmake --build build -j8
 ```
 
-Executables go to `build/Build/bin`.
+Executables go to `build/bin`, libraries to `build/lib`.
 
 ### Using the `hexex` command line application
 
@@ -102,7 +102,7 @@ Executables go to `build/Build/bin`.
 does, except for the read-back verification):
 
 ```bash
-build/Build/bin/hexex --in <input.hexex> [--out <hex.ovm>]
+build/bin/hexex --in <input.hexex> [--out <hex.ovm>]
                       [--out-refined <refined.geogram>] [--out-hex <hex.geogram>]
                       [--out-trajectory <directory-or-prefix>]
 ```
@@ -123,12 +123,12 @@ build/Build/bin/hexex --in <input.hexex> [--out <hex.ovm>]
 names are derived from the input mesh (`<input>_hex.ovm`,
 `<input>_refined.geogram`, `<input>_hex.geogram`). The trajectory layout is
 only computed when one of the geogram outputs or `--check` is requested. Run
-`build/Build/bin/hexex --help` for the details.
+`build/bin/hexex --help` for the details.
 
 Example:
 
 ```bash
-build/Build/bin/hexex --in tests/testdata/fiveadvanced.hexex --out-trajectory /tmp/fiveadvanced --check
+build/bin/hexex --in tests/testdata/fiveadvanced.hexex --out-trajectory /tmp/fiveadvanced --check
 ```
 
 writes `/tmp/fiveadvanced_refined.geogram` and `/tmp/fiveadvanced_hex.geogram`.

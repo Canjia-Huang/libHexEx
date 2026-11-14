@@ -39,13 +39,14 @@ target_link_libraries(unittests HexEx::HexEx GTest::gtest_main)
 # For the unittest we don't want the install rpath as set by acg_add_executable
 set_target_properties (unittests PROPERTIES  BUILD_WITH_INSTALL_RPATH 0 )
 
-# Set output directory to ${BINARY_DIR}/Build
-set (OUTPUT_DIR "${CMAKE_BINARY_DIR}/Build/${ACG_PROJECT_BINDIR}")
-set_target_properties(unittests PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_DIR})
+# The test binary goes to <build>/bin (the global runtime output directory) and
+# the tests run in <build>, where the test data and the Results directory live.
+set (OUTPUT_DIR "${CMAKE_BINARY_DIR}")
+set_target_properties(unittests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${OUTPUT_DIR}/bin")
 
 foreach(CONFIG ${CMAKE_CONFIGURATION_TYPES})
     string(TOUPPER ${CONFIG} UPCONFIG)
-    set_target_properties(unittests PROPERTIES RUNTIME_OUTPUT_DIRECTORY_${UPCONFIG} ${OUTPUT_DIR})
+    set_target_properties(unittests PROPERTIES RUNTIME_OUTPUT_DIRECTORY_${UPCONFIG} "${OUTPUT_DIR}/bin")
 endforeach()
 
 if ( CMAKE_GENERATOR MATCHES "^Visual Studio 11.*" )

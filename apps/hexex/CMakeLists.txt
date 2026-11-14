@@ -23,8 +23,6 @@ add_executable (hexex ${CMAKE_CURRENT_SOURCE_DIR}/main.cc)
 target_link_libraries (hexex PRIVATE ${HEXEX_APP_LIBRARIES})
 target_compile_definitions (hexex PRIVATE ${HEXEX_APP_DEFINITIONS})
 
-set_target_properties (hexex PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/Build/bin")
 
 target_compile_options (hexex PRIVATE
     $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra>

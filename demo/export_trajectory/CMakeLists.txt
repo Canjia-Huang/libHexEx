@@ -18,5 +18,3 @@ target_include_directories (export_trajectory
         ${CMAKE_SOURCE_DIR}/src
     )
 
-set_target_properties (export_trajectory PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/Build/bin")

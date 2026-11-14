@@ -26,7 +26,7 @@ Quick start (recommended, CMake >= 3.23)
     cmake --preset debug          # configures into ./build
     cmake --build --preset debug  # builds lib, demos and tests
     ctest --preset debug          # runs the unit tests
-    ./build/Build/bin/minimum_example
+    ./build/bin/minimum_example
 
 A Release preset is available as well:
 
@@ -88,8 +88,9 @@ Options
 Notes
 -----
 * Output locations for a standalone build:
-    libraries  -> build/Build/lib
-    executables-> build/Build/bin (the unit test binary is build/Build/unittests)
+    libraries  -> build/lib
+    executables-> build/bin (the unit test binary is build/bin/unittests)
+    test data  -> build/testdata, test results in build/Results
 * Install with: cmake --install build --prefix /path/to/prefix
   This also installs OpenVolumeMesh (headers, library and its CMake package
   config) and the HexEx CMake package config, so downstream projects can use

@@ -85,12 +85,9 @@ echo "Running unittests Release version"
 echo "======================================================================"
 echo -e "${NC}"
 
-cd Build
+#execute tests (the binary is in <build>/bin, the working directory is <build>)
+./bin/unittests --gtest_color=yes --gtest_output=xml
 
-#execute tests
-./unittests --gtest_color=yes --gtest_output=xml
-
-cd ..
 cd ..
 
 echo -e "${OUTPUT}"
@@ -123,10 +120,7 @@ echo "======================================================================"
 echo -e "${NC}"
 
 
-cd Build
+#execute tests (the binary is in <build>/bin, the working directory is <build>)
+./bin/unittests --gtest_color=yes --gtest_output=xml
 
-#execute tests
-./unittests --gtest_color=yes --gtest_output=xml
-
-cd ..
 cd ..
