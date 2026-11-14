@@ -1,6 +1,16 @@
-get_filename_component(OPENVOLUMEMESH_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+@PACKAGE_INIT@
 
-if(NOT TARGET HexEx::HexEx)
-    include("${HEXEX_CMAKE_DIR}/HexExTargets.cmake")
+include(CMakeFindDependencyMacro)
+
+# HexEx links OpenVolumeMesh PUBLIC, so consumers need that target too.
+# This resolves fine when OpenVolumeMesh was installed into the same prefix
+# (e.g. when it was fetched and built together with HexEx).
+if(NOT TARGET OpenVolumeMesh::OpenVolumeMesh)
+    find_dependency(OpenVolumeMesh)
 endif()
 
+if(NOT TARGET HexEx::HexEx)
+    include("${CMAKE_CURRENT_LIST_DIR}/HexExTargets.cmake")
+endif()
+
+check_required_components(HexEx)

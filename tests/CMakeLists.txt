@@ -1,13 +1,23 @@
 if (NOT TARGET GTest::gtest_main)
-    FetchContent_Declare( googletest
-        GIT_REPOSITORY https://github.com/google/googletest.git
-        GIT_TAG        v1.17.x
-        )
-    if(WIN32)
-        # avoid linking errors, cf https://stackoverflow.com/questions/12540970/how-to-make-gtest-build-mdd-instead-of-mtd-by-default-using-cmake
-        set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    # Do not install gtest into this project's install prefix.
+    set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+    if(EXISTS "${HEXEX_THIRD_PARTY_DIR}/googletest/CMakeLists.txt")
+        message(STATUS "HexEx: using googletest from ${HEXEX_THIRD_PARTY_DIR}/googletest")
+        add_subdirectory("${HEXEX_THIRD_PARTY_DIR}/googletest"
+                         "${CMAKE_BINARY_DIR}/third_party/googletest"
+                         EXCLUDE_FROM_ALL)
+    else()
+        message(STATUS "HexEx: no googletest submodule found at ${HEXEX_THIRD_PARTY_DIR}/googletest, downloading it....")
+        FetchContent_Declare( googletest
+            GIT_REPOSITORY https://github.com/google/googletest.git
+            GIT_TAG        v1.17.0
+            )
+        if(WIN32)
+            # avoid linking errors, cf https://stackoverflow.com/questions/12540970/how-to-make-gtest-build-mdd-instead-of-mtd-by-default-using-cmake
+            set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+        endif()
+        FetchContent_MakeAvailable(googletest)
     endif()
-    FetchContent_MakeAvailable(googletest)
 endif()
 
 include(GoogleTest)

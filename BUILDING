@@ -1,23 +1,93 @@
-libHexEx uses the cmake build system.
+libHexEx uses the CMake build system (CMake >= 3.12).
 
-libHexEx depends on OpenVolumeMesh 2.0, which is available on www.openvolumemesh.org.
+Dependencies
+------------
+libHexEx depends on OpenVolumeMesh >= 3.4.1. Both dependencies are tracked as
+git submodules in third_party/ and are pinned to known-good releases:
 
-In order to build libHexEx, you can perform the following steps:
+    third_party/OpenVolumeMesh   OpenVolumeMesh v3.4.1
+    third_party/googletest       GoogleTest v1.17.0 (unit tests only)
 
-# Clone libHexEx
-git clone https://www.graphics.rwth-aachen.de:9000/HexEx/libHexEx.git libHexEx
-cd libHexEx
+Fetch them with:
 
-# Create build directory
-mkdir build
-cd build
+    git clone --recursive <libHexEx-url>
+    # or, in an existing checkout:
+    git submodule update --init --recursive
 
-# Initialize the build directory
-cmake -D OPENVOLUMEMESH_INCLUDE_DIR=/path/to/OpenVolumeMesh/src \
-    -D OPENVOLUMEMESH_LIBRARY_DIR=/path/to/OpenVolumeMesh/binaries ..
+If the submodules are not checked out (i.e. third_party/ is empty), CMake falls
+back to downloading the same versions via FetchContent, so a plain non-recursive
+clone still configures - it just takes longer the first time.
 
-# Build
-make
 
-# Try a demo
-./demo/minimum_example/minimum_example
+Quick start (recommended, CMake >= 3.23)
+----------------------------------------
+    git submodule update --init --recursive
+    cmake --preset debug          # configures into ./build
+    cmake --build --preset debug  # builds lib, demos and tests
+    ctest --preset debug          # runs the unit tests
+    ./build/Build/bin/minimum_example
+
+A Release preset is available as well:
+
+    cmake --preset release
+    cmake --build --preset release
+    ctest --preset release
+
+The presets are also picked up automatically by CLion and other IDEs that
+support CMakePresets.json. Select the "debug" preset as the CMake profile.
+
+
+Manual configure (without presets)
+----------------------------------
+    cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+    cmake --build build --parallel
+    ctest --test-dir build
+
+
+Using a different OpenVolumeMesh / googletest
+---------------------------------------------
+Option A - point HexEx at another third_party directory:
+
+    cmake -S . -B build -DHEXEX_THIRD_PARTY_DIR=/path/to/my/third_party
+
+Option B - only for the FetchContent fallback, use local sources:
+
+    cmake -S . -B build -DFETCHCONTENT_SOURCE_DIR_OVM=/path/to/OpenVolumeMesh
+
+Option C - use an installed / pre-built OpenVolumeMesh, letting find_package
+locate it (it must be found before HexEx is configured, e.g. by calling
+find_package(OpenVolumeMesh REQUIRED) in the parent project):
+
+    cmake -S . -B build -DOpenVolumeMesh_DIR=/path/to/OpenVolumeMesh/lib/cmake/OpenVolumeMesh
+
+Option D - add libHexEx to a parent project with add_subdirectory(); if the
+parent already provides the OpenVolumeMesh::OpenVolumeMesh target (and, for the
+tests, GTest::gtest_main), HexEx uses it and skips third_party entirely.
+
+
+Options
+-------
+    HEXEX_BUILD_UNIT_TESTS   Build the unit tests (default: ON for a standalone
+                             build, OFF when included in another project).
+    HEXEX_THIRD_PARTY_DIR    Where the dependency submodules live (default:
+                             <source>/third_party).
+    STL_RANGE_CHECKS         Enable libstdc++ debug-mode range checks in Debug
+                             builds (default: OFF).
+
+
+Notes
+-----
+* Output locations for a standalone build:
+    libraries  -> build/Build/lib
+    executables-> build/Build/bin (the unit test binary is build/Build/unittests)
+* Install with: cmake --install build --prefix /path/to/prefix
+  This also installs OpenVolumeMesh (headers, library and its CMake package
+  config) and the HexEx CMake package config, so downstream projects can use
+  find_package(HexEx) and link against HexEx::HexEx.
+* The bundled exact predicates (Shewchuk) must not be compiled with x87
+  extended precision. On x86 the CMakeLists therefore forces -msse
+  -mfpmath=sse; compilation on ARM is unaffected.
+* macOS: build with Apple Clang (the default). A Homebrew GCC is currently not
+  usable, because its driver passes a deployment target to the linker that the
+  installed Apple toolchain rejects ("invalid version number in
+  '-mmacosx-version-min=...'").

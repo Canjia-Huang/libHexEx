@@ -48,12 +48,24 @@ endif()
 
 include(FetchContent)
 
+# Third-party dependencies live in git submodules below third_party/:
+#   third_party/OpenVolumeMesh   (v3.4.1)
+#   third_party/googletest       (v1.17.0, only needed for the unit tests)
+# When the submodules are not initialized (empty directory), we fall back to
+# downloading the same versions via FetchContent.
+set(HEXEX_THIRD_PARTY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party"
+    CACHE PATH "Directory containing the OpenVolumeMesh and googletest submodules.")
+
 if (TARGET OpenVolumeMesh::OpenVolumeMesh)
     message(STATUS "HexEx: building with supplied OpenVolumeMesh::OpenVolumeMesh target.")
+elseif (EXISTS "${HEXEX_THIRD_PARTY_DIR}/OpenVolumeMesh/CMakeLists.txt")
+    message(STATUS "HexEx: using OpenVolumeMesh from ${HEXEX_THIRD_PARTY_DIR}/OpenVolumeMesh")
+    add_subdirectory("${HEXEX_THIRD_PARTY_DIR}/OpenVolumeMesh"
+                     "${CMAKE_CURRENT_BINARY_DIR}/third_party/OpenVolumeMesh")
 else()
-    message(STATUS "HexEx: no OpenVolumeMesh::OpenVolumeMesh target supplied, downloading OVM....")
+    message(STATUS "HexEx: no OpenVolumeMesh submodule found at ${HEXEX_THIRD_PARTY_DIR}/OpenVolumeMesh, downloading OVM....")
     FetchContent_Declare(ovm
-        GIT_REPOSITORY https://www.graphics.rwth-aachen.de:9000/OpenVolumeMesh/OpenVolumeMesh
+        GIT_REPOSITORY https://gitlab.vci.rwth-aachen.de:9000/OpenVolumeMesh/OpenVolumeMesh.git
         GIT_TAG v3.4.1
         )
     FetchContent_MakeAvailable(ovm)
