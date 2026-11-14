@@ -306,34 +306,9 @@ int main(int argc, char** argv)
     verifyLayout(layout, hexMesh);
 
     // the two geogram meshes
-    std::vector<Vec3d> hexVertices(hexMesh.n_vertices());
-    for (auto vh : hexMesh.vertices())
-        hexVertices[vh.idx()] = hexMesh.vertex(vh);
-
+    std::vector<Vec3d> hexVertices;
     TrajectoryMeshView hexConnectivity;
-    hexConnectivity.n_vertices = (int)hexMesh.n_vertices();
-    hexConnectivity.cells.resize(hexMesh.n_cells());
-    for (auto ch : hexMesh.cells())
-    {
-        std::vector<int>& cell = hexConnectivity.cells[ch.idx()];
-        const auto range = hexMesh.cell_vertices(ch);
-        for (auto it = range.first; it != range.second; ++it)
-            cell.push_back((int)it->idx());
-    }
-    hexConnectivity.faces.resize(hexMesh.n_faces());
-    for (auto fh : hexMesh.faces())
-    {
-        const std::vector<VertexHandle> vertices = hexMesh.get_halfface_vertices(hexMesh.halfface_handle(fh, 0));
-        std::vector<int>& face = hexConnectivity.faces[fh.idx()];
-        for (size_t i = 0; i < vertices.size(); ++i) face.push_back((int)vertices[i].idx());
-    }
-    hexConnectivity.edges.resize(hexMesh.n_edges());
-    for (auto eh : hexMesh.edges())
-    {
-        const HalfEdgeHandle heh = hexMesh.halfedge_handle(eh, 0);
-        hexConnectivity.edges[eh.idx()][0] = (int)hexMesh.from_vertex_handle(heh).idx();
-        hexConnectivity.edges[eh.idx()][1] = (int)hexMesh.to_vertex_handle(heh).idx();
-    }
+    makeTrajectoryMesh(hexMesh, hexVertices, hexConnectivity);
 
     const std::string refinedFilename = outPrefix + "_refined.geogram";
     const std::string hexFilename = outPrefix + "_hex.geogram";

@@ -75,7 +75,7 @@ void GeogramBridge::initialize()
     }
 }
 
-void GeogramBridge::toRefinedMesh(const HexTrajectoryLayout& layout, GEO::Mesh& out)
+void GeogramBridge::toRefinedMesh(const HexTrajectoryLayout& layout, GEO::Mesh& out, bool withCells)
 {
     initialize();
     out.clear(false);
@@ -145,7 +145,7 @@ void GeogramBridge::toRefinedMesh(const HexTrajectoryLayout& layout, GEO::Mesh& 
     }
 
     // ---- cells ---------------------------------------------------------
-    const GEO::index_t nCells = (GEO::index_t)layout.cell_vertices.size();
+    const GEO::index_t nCells = withCells ? (GEO::index_t)layout.cell_vertices.size() : 0;
     if (nCells > 0)
     {
         const GEO::index_t first = out.cells.create_tets(nCells);
@@ -254,10 +254,11 @@ bool GeogramBridge::save(const GEO::Mesh& mesh, const std::string& filename)
     return GEO::mesh_save(mesh, filename);
 }
 
-bool GeogramBridge::saveRefinedMesh(const HexTrajectoryLayout& layout, const std::string& filename)
+bool GeogramBridge::saveRefinedMesh(const HexTrajectoryLayout& layout, const std::string& filename,
+                                    bool withCells)
 {
     GEO::Mesh mesh;
-    toRefinedMesh(layout, mesh);
+    toRefinedMesh(layout, mesh, withCells);
     return save(mesh, filename);
 }
 

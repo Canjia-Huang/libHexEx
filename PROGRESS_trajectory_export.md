@@ -96,6 +96,9 @@ refined 网格的 facet/edge 存储**只包含 piece 边界**（piece 之间和�
 | `interfaces/geogram/CMakeLists.txt` | **新增**：`HexExGeogram` 库 |
 | `cmake/FindGeogram.cmake` | **新增**（从 libQEx 移植）：支持已安装的 geogram 或源码树 + 构建目录 |
 | `demo/export_trajectory/main.cc` + CMakeLists | **新增**：导出工具 + 两级验收 + geogram 回读校验 |
+| `apps/hexex/main.cc` + CMakeLists | **新增**：`hexex` 命令行程序（CLI11），对齐 libQEx 的 `qex`：`--in/--out/--out-refined/--out-hex/--out-trajectory/--check/--refined-surface-only/--simple-merge-position/-v`；默认静默，只有请求 geogram 输出或 `--check` 时才构建轨迹 |
+| `src/HexEx/Verbose.hh/.cc` | **新增**：`setVerbose()/verbose()`；`HEXEX_DEBUG_ONLY` 由编译期改为运行期开关（`apps/hexex` 默认关闭输出） |
+| `third_party/CLI11` | **新增** git submodule（v2.7.2，与 libQEx 一致）；缺失时 CMake 用 FetchContent 拉同版本 |
 | `tests/trajectory_test.cc` | **新增** gtest：立方体（含 transition）100% 覆盖；`testdata/sphere.hexex` 结构不变量 |
 | `README.md` | 新增 “Trajectories of the extracted elements” 一节 |
 
@@ -107,10 +110,16 @@ refined 网格的 facet/edge 存储**只包含 piece 边界**（piece 之间和�
 cmake -S . -B build            # 自动发现 ~/geogram
 cmake --build build -j8
 
-# 导出（写出 + 回读校验）
-./build/Build/bin/export_trajectory tests/testdata/fiveadvanced.hexex /tmp/fiveadvanced
+# 命令行程序（推荐）
+./build/Build/bin/hexex --in tests/testdata/fiveadvanced.hexex \
+    --out-trajectory /tmp/fiveadvanced --check
 #  -> /tmp/fiveadvanced_refined.geogram
 #  -> /tmp/fiveadvanced_hex.geogram
+# 可只输出其一：--out-refined / --out-hex；--refined-surface-only 省略四面体；
+# --out <file.ovm> 写 OpenVolumeMesh；不加 geogram 参数时只提取、不建轨迹。
+
+# 完整校验 demo（写出 + 回读逐项校验）
+./build/Build/bin/export_trajectory tests/testdata/fiveadvanced.hexex /tmp/fiveadvanced
 
 # 单元测试
 cd build/Build && ./unittests --gtest_filter='Trajectory.*'
@@ -119,7 +128,7 @@ cd build/Build && ./unittests --gtest_filter='Trajectory.*'
 
 可选开关：`-DHEXEX_WITH_GEOGRAM=OFF` 关闭 geogram（核心库和原有测试不受影响）；`-DGEOGRAM_ROOT=/path/to/geogram` 指定源码树。
 
-环境变量 **`HEXEX_TRAJECTORY_DIAGNOSTICS=1`** 打开诊断输出（拒绝的 piece 连接、缺角 group、非法 hex cell 角点等）。
+`hexex` 默认关闭库的进度输出（`HexEx::setVerbose(false)`），`-v` 打开。环境变量 **`HEXEX_TRAJECTORY_DIAGNOSTICS=1`** 打开轨迹诊断输出（拒绝的 piece 连接、缺角 group、非法 hex cell 角点等）。
 
 ---
 

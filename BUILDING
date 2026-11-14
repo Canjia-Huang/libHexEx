@@ -7,6 +7,7 @@ git submodules in third_party/ and are pinned to known-good releases:
 
     third_party/OpenVolumeMesh   OpenVolumeMesh v3.4.1
     third_party/googletest       GoogleTest v1.17.0 (unit tests only)
+    third_party/CLI11            CLI11 v2.7.2 (the hexex application only)
 
 Fetch them with:
 
@@ -44,7 +45,7 @@ Manual configure (without presets)
     ctest --test-dir build
 
 
-Using a different OpenVolumeMesh / googletest
+Using a different OpenVolumeMesh / googletest / CLI11
 ---------------------------------------------
 Option A - point HexEx at another third_party directory:
 
@@ -60,6 +61,10 @@ find_package(OpenVolumeMesh REQUIRED) in the parent project):
 
     cmake -S . -B build -DOpenVolumeMesh_DIR=/path/to/OpenVolumeMesh/lib/cmake/OpenVolumeMesh
 
+CLI11 can also be replaced in the same way
+(-DHEXEX_THIRD_PARTY_DIR=...) or, if the submodule is missing, is downloaded via
+FetchContent (tag v2.7.2).
+
 Option D - add libHexEx to a parent project with add_subdirectory(); if the
 parent already provides the OpenVolumeMesh::OpenVolumeMesh target (and, for the
 tests, GTest::gtest_main), HexEx uses it and skips third_party entirely.
@@ -69,6 +74,11 @@ Options
 -------
     HEXEX_BUILD_UNIT_TESTS   Build the unit tests (default: ON for a standalone
                              build, OFF when included in another project).
+    HEXEX_WITH_GEOGRAM       Build the geogram bridge and the geogram output of
+                             the hexex application: AUTO (detect geogram, the
+                             default), ON (fail if geogram is missing) or OFF.
+    GEOGRAM_ROOT             geogram source tree or installation (default:
+                             $HOME/geogram if it exists).
     HEXEX_THIRD_PARTY_DIR    Where the dependency submodules live (default:
                              <source>/third_party).
     STL_RANGE_CHECKS         Enable libstdc++ debug-mode range checks in Debug

@@ -28,6 +28,7 @@
 #include "MeshConversion.hh"
 #include "ExactPredicates.hh"
 #include "TrajectoryLayout.hh"
+#include "Verbose.hh"
 #include "HexEx/Config/Export.hh"
 
 namespace HexEx {
@@ -35,8 +36,7 @@ namespace HexEx {
 #ifdef HEXEX_VERBOSE
 #define HEXEX_DEBUG_ONLY(x) x
 #else
-#define HEXEX_DEBUG_ONLY(x) x
-//#define HEXEX_DEBUG_ONLY(x)
+#define HEXEX_DEBUG_ONLY(x) if (::HexEx::verbose()) { x; } else { }
 #endif
 
 
@@ -151,31 +151,9 @@ public:
         addCellsToHexMesh(hexMesh);
         transferFeatureTagsToHexmesh(hexMesh);
 
+        std::vector<Vec3d> vertices;
         TrajectoryMeshView view;
-        view.n_vertices = (int)hexMesh.n_vertices();
-        view.cells.resize((size_t)hexMesh.n_cells());
-        for (auto ch : hexMesh.cells())
-        {
-            std::vector<int>& cell = view.cells[(size_t)ch.idx()];
-            auto range = hexMesh.cell_vertices(ch);
-            for (auto it = range.first; it != range.second; ++it)
-                cell.push_back((int)it->idx());
-        }
-        view.faces.resize((size_t)hexMesh.n_faces());
-        for (auto fh : hexMesh.faces())
-        {
-            const std::vector<VertexHandle> vertices = hexMesh.get_halfface_vertices(hexMesh.halfface_handle(fh, 0));
-            std::vector<int>& face = view.faces[(size_t)fh.idx()];
-            for (size_t i = 0; i < vertices.size(); ++i)
-                face.push_back((int)vertices[i].idx());
-        }
-        view.edges.resize((size_t)hexMesh.n_edges());
-        for (auto eh : hexMesh.edges())
-        {
-            const HalfEdgeHandle heh = hexMesh.halfedge_handle(eh, 0);
-            view.edges[(size_t)eh.idx()][0] = (int)hexMesh.from_vertex_handle(heh).idx();
-            view.edges[(size_t)eh.idx()][1] = (int)hexMesh.to_vertex_handle(heh).idx();
-        }
+        makeTrajectoryMesh(hexMesh, vertices, view);
 
         buildTrajectoryLayout(layout, view);
     }
@@ -544,9 +522,13 @@ private:
                     if (!((localUV[0] == 0) || (localUV[0] == 1)) ||
                             !((localUV[1] == 0) || (localUV[1] == 1)) ||
                             !((localUV[2] == 0) || (localUV[2] == 1)) )
+                    {
                         HEXEX_DEBUG_ONLY(std::cout << "Error in local UVs" << std::endl);
+                    }
                     else
+                    {
                         vertexCube[(int)localUV[0]][(int)localUV[1]][(int)localUV[2]] = newVh;
+                    }
                 }
 
                 vertices.push_back(vertexCube[0][0][1]);

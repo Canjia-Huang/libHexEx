@@ -2,8 +2,8 @@ stages:
   - build
 
 variables:
-  # Dependencies (OpenVolumeMesh, googletest) are pinned as git submodules in
-  # third_party/, so the runner has to check them out as well.
+  # Dependencies (OpenVolumeMesh, googletest, CLI11) are pinned as git
+  # submodules in third_party/, so the runner has to check them out as well.
   GIT_SUBMODULE_STRATEGY: recursive
 
 gcc-c++17:

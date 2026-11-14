@@ -80,18 +80,67 @@ unit cube are grouped by propagating the integer coordinates through the
 extractor's transition functions (which are exact per face), and the hex
 elements are identified through the extractor's intermediate hex mesh.
 
-### Building and running the export
+### Building
 
+Dependencies are git submodules in `third_party/` (`OpenVolumeMesh`,
+`googletest` for the tests and `CLI11` for the `hexex` application), so clone
+with `--recurse-submodules` (or run `git submodule update --init --recursive`).
 geogram is optional and detected automatically (`~/geogram`, or an installed
 copy); `-DGEOGRAM_ROOT=<path>` points at a geogram source tree,
 `-DHEXEX_WITH_GEOGRAM=OFF` disables the bridge.
 
 ```bash
+cmake -S . -B build
+cmake --build build -j8
+```
+
+Executables go to `build/Build/bin`.
+
+### Using the `hexex` command line application
+
+`hexex` replaces `demo/cmdline_tool` (and can do what `demo/export_trajectory`
+does, except for the read-back verification):
+
+```bash
+build/Build/bin/hexex --in <input.hexex> [--out <hex.ovm>]
+                      [--out-refined <refined.geogram>] [--out-hex <hex.geogram>]
+                      [--out-trajectory <directory-or-prefix>]
+```
+
+| option | meaning |
+|---|---|
+| `-i,--in` | input tet mesh with a per-cell integer grid map (`.hexex`) |
+| `-o,--out` | extracted hex mesh in OpenVolumeMesh format |
+| `--out-refined` | the refined mesh (the trajectory of the extracted elements) as a geogram mesh with all information in attributes |
+| `--out-hex` | the extracted hex mesh as a geogram mesh with the trajectory attributes |
+| `--out-trajectory` | convenience: write both geogram meshes; a directory derives the names, anything else is a file name prefix |
+| `--refined-surface-only` | omit the refined tetrahedra (only vertices/edges/facets, smaller files) |
+| `--check` | check the trajectory layout (volume conservation, cracks, coverage) and report it |
+| `--simple-merge-position` | use the unoptimized merge positions |
+| `-v,--verbose` | print the extractor's progress output (quiet by default) |
+
+`--out` and the geogram outputs also accept a directory, in which case the file
+names are derived from the input mesh (`<input>_hex.ovm`,
+`<input>_refined.geogram`, `<input>_hex.geogram`). The trajectory layout is
+only computed when one of the geogram outputs or `--check` is requested. Run
+`build/Build/bin/hexex --help` for the details.
+
+Example:
+
+```bash
+build/Build/bin/hexex --in tests/testdata/fiveadvanced.hexex --out-trajectory /tmp/fiveadvanced --check
+```
+
+writes `/tmp/fiveadvanced_refined.geogram` and `/tmp/fiveadvanced_hex.geogram`.
+
+### Full verification demo
+
+```bash
 build/bin/export_trajectory tests/testdata/fiveadvanced.hexex /tmp/fiveadvanced
 ```
 
-writes `/tmp/fiveadvanced_refined.geogram` and `/tmp/fiveadvanced_hex.geogram`
-and then reads both files back and verifies the attributes.
+does the same as `hexex --out-trajectory` and additionally reads both files
+back and verifies that all attributes survived.
 
 ### Measurements
 

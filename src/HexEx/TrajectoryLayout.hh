@@ -242,4 +242,51 @@ struct HEXEX_EXPORT TrajectoryMeshView
     std::vector<std::array<int, 2> > edges; ///< per edge: its two vertices
 };
 
+/**
+ * @brief Extracts the vertex positions and the connectivity of a hex mesh.
+ *
+ * This is the input the geogram bridge needs; it keeps the bridge independent
+ * of the concrete mesh type.
+ */
+template <typename HexMeshT>
+void makeTrajectoryMesh(const HexMeshT& hexMesh, std::vector<Vec3d>& vertices,
+                        TrajectoryMeshView& connectivity)
+{
+    vertices.resize((size_t)hexMesh.n_vertices());
+    for (auto vh : hexMesh.vertices())
+    {
+        const auto p = hexMesh.vertex(vh);
+        vertices[(size_t)vh.idx()] = Vec3d(p[0], p[1], p[2]);
+    }
+
+    connectivity.n_vertices = (int)hexMesh.n_vertices();
+
+    connectivity.cells.resize((size_t)hexMesh.n_cells());
+    for (auto ch : hexMesh.cells())
+    {
+        std::vector<int>& cell = connectivity.cells[(size_t)ch.idx()];
+        const auto range = hexMesh.cell_vertices(ch);
+        for (auto it = range.first; it != range.second; ++it)
+            cell.push_back((int)it->idx());
+    }
+
+    connectivity.faces.resize((size_t)hexMesh.n_faces());
+    for (auto fh : hexMesh.faces())
+    {
+        const std::vector<VertexHandle> faceVertices =
+                hexMesh.get_halfface_vertices(hexMesh.halfface_handle(fh, 0));
+        std::vector<int>& face = connectivity.faces[(size_t)fh.idx()];
+        for (size_t i = 0; i < faceVertices.size(); ++i)
+            face.push_back((int)faceVertices[i].idx());
+    }
+
+    connectivity.edges.resize((size_t)hexMesh.n_edges());
+    for (auto eh : hexMesh.edges())
+    {
+        const HalfEdgeHandle heh = hexMesh.halfedge_handle(eh, 0);
+        connectivity.edges[(size_t)eh.idx()][0] = (int)hexMesh.from_vertex_handle(heh).idx();
+        connectivity.edges[(size_t)eh.idx()][1] = (int)hexMesh.to_vertex_handle(heh).idx();
+    }
+}
+
 } // namespace HexEx

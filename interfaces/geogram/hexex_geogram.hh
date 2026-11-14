@@ -115,8 +115,13 @@ public:
     /**
      * @brief Fills @p out with the refined mesh, including all attributes
      *        listed above.
+     *
+     * @param withCells if false, the refined tetrahedra are omitted and only
+     *        the vertices, edges and facets (the trajectories of the hex
+     *        vertices, edges and faces) are written
      */
-    static void toRefinedMesh(const HexTrajectoryLayout& layout, GEO::Mesh& out);
+    static void toRefinedMesh(const HexTrajectoryLayout& layout, GEO::Mesh& out,
+                              bool withCells = true);
 
     /**
      * @brief Fills @p out with the extracted hex mesh and its attributes.
@@ -142,7 +147,8 @@ public:
     static bool save(const GEO::Mesh& mesh, const std::string& filename);
 
     /// Convenience: refine + save (see toRefinedMesh() and save()).
-    static bool saveRefinedMesh(const HexTrajectoryLayout& layout, const std::string& filename);
+    static bool saveRefinedMesh(const HexTrajectoryLayout& layout, const std::string& filename,
+                                bool withCells = true);
 
     /// Convenience: hex mesh + save (see toHexMesh() and save()).
     static bool saveHexMesh(const HexTrajectoryLayout& layout,

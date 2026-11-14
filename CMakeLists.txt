@@ -20,6 +20,10 @@
 
 cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
 cmake_policy(VERSION 3.12.0)
+# let find_package() honour the upper-case GEOGRAM_ROOT variable (CMake >= 3.27)
+if(POLICY CMP0144)
+    cmake_policy(SET CMP0144 NEW)
+endif()
 
 project (HexEx
     VERSION 1.0.0
@@ -101,6 +105,29 @@ endif()
 
 
 
+#
+# CLI11 (https://github.com/CLIUtils/CLI11), used by the hexex command line
+# application. It is a git submodule in third_party/; when the submodule is not
+# initialized, the same version is downloaded via FetchContent.
+#
+if(EXISTS "${HEXEX_THIRD_PARTY_DIR}/CLI11/CMakeLists.txt")
+    message(STATUS "HexEx: using CLI11 from ${HEXEX_THIRD_PARTY_DIR}/CLI11")
+    set(CLI11_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    set(CLI11_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(CLI11_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+    set(CLI11_SINGLE_FILE OFF CACHE BOOL "" FORCE)
+    set(CLI11_INSTALL OFF CACHE BOOL "" FORCE)
+    add_subdirectory("${HEXEX_THIRD_PARTY_DIR}/CLI11"
+                     "${CMAKE_CURRENT_BINARY_DIR}/third_party/CLI11" EXCLUDE_FROM_ALL)
+else()
+    message(STATUS "HexEx: no CLI11 submodule found at ${HEXEX_THIRD_PARTY_DIR}/CLI11, downloading it....")
+    FetchContent_Declare(cli11
+        GIT_REPOSITORY https://github.com/CLIUtils/CLI11
+        GIT_TAG v2.7.2
+        )
+    FetchContent_MakeAvailable(cli11)
+endif()
+
 set(SOURCE_FILES
     src/HexEx/Dart.cc
     src/HexEx/DerivedExactPredicates.cc
@@ -113,6 +140,7 @@ set(SOURCE_FILES
     src/HexEx/MergePosition.cc
     src/HexEx/TrajectoryLayout.cc
     src/HexEx/Utils.cc
+    src/HexEx/Verbose.cc
     src/HexEx/predicates.c)
 
 add_library (HexEx ${SOURCE_FILES})
@@ -276,6 +304,7 @@ if(HEXEX_GEOGRAM_FOUND)
 endif()
 
 if(HEXEX_STANDALONE_BUILD)
+   add_subdirectory(apps/hexex)
    add_subdirectory(demo/cmdline_tool)
    add_subdirectory(demo/minimum_example)
    if(HEXEX_GEOGRAM_FOUND)
