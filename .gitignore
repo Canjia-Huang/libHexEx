@@ -2,6 +2,7 @@
 /.cproject
 /.settings
 /CMakeLists.txt.user
+/CMakeUserPresets.json
 /build*/
 *.swp
 *~
@@ -11,3 +12,10 @@
 *.gcno
 /OpenVolumeMesh/
 .cache/
+
+# IDE / editor files
+/.idea/
+/.vscode/
+/.fleet/
+*.iml
+.DS_Store
