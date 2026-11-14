@@ -37,6 +37,10 @@ download the source code if you don't care about the details and just need resul
 
 ## Trajectories of the extracted elements (new)
 
+| Input (tet mesh + integer grid map) | Embedded cell complex (colored by hex cell) |
+| :---: | :---: |
+| <img src="./assets/input.png" width="330"> | <img src="./assets/complex.png" width="330"> |
+
 While extracting, HexEx traces grid edges (darts) through the input tetrahedra.
 Those traces are now recorded, which makes the *where does every extracted
 element come from* available as a **subdivision of the input tetrahedral
