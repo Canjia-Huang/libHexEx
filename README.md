@@ -34,6 +34,84 @@ Read [our paper](https://www.graphics.rwth-aachen.de/publication/03260/) if you 
 to find out why hex extraction is complicated and how we tackle it or skip ahead and
 download the source code if you don't care about the details and just need results.
 
+
+## Trajectories of the extracted elements (new)
+
+While extracting, HexEx traces grid edges (darts) through the input tetrahedra.
+Those traces are now recorded, which makes the *where does every extracted
+element come from* available as a **subdivision of the input tetrahedral
+mesh**:
+
+* the **refined mesh**: every input tet cut by all integer grid planes. Every
+  piece `tet ∩ unit cube` is tetrahedralized by coning from its centroid to the
+  triangles of its triangulated boundary, so the refined mesh stores vertices,
+  edges, triangular facets *and* tetrahedra;
+* the **correspondence** between the refined elements and the extracted hex
+  mesh: each refined vertex/edge/facet/cell knows the hex vertex/edge/face/cell
+  it belongs to (or -1 if there is none, e.g. inside the holes of the
+  extractor);
+* the **polyline of every hex edge**, the **patch of every hex face** and the
+  **pieces of every hex cell**, exposed explicitly as well as through the
+  attributes.
+
+API: `HexEx::HexTrajectoryLayout` plus
+`HexEx::HexExtractor::getHexMeshWithTrajectory()`. Writer: the `HexExGeogram`
+bridge (`toRefinedMesh()`, `toHexMesh()`, `save()`), which stores everything in
+`GEO::Mesh` **attributes**, so exporting to `.geogram` loses nothing:
+
+| mesh | element | attributes |
+|---|---|---|
+| refined | vertex | `kind`, `tet_vertex`, `tet_edge`, `tet_face`, `tet_cell`, `hex_vertex`, `grid` |
+| refined | edge | `hex_edge`, `hex_edge_step`, `tet_edge`, `piece`, `grid` |
+| refined | facet | `hex_face`, `tet_face`, `piece`, `kind` |
+| refined | cell | `piece`, `tet_cell`, `hex_cell` |
+| hex | vertex | `hex_vertex`, `n_refined` |
+| hex | edge | `hex_edge`, `n_refined`, `border` |
+| hex | face | `hex_face`, `n_refined`, `border` |
+| hex | cell | `hex_cell`, `n_refined`, `n_pieces` |
+
+Attributes that can be "not there" are `int` (holding -1); all others are
+`unsigned int`. See `interfaces/geogram/hexex_geogram.hh` for the full table.
+
+The correspondence is built **without a global integer grid frame**: such a
+frame does not exist for a general integer-grid map, because the frame rotates
+around the singular edges of the parametrization. Instead the pieces of every
+unit cube are grouped by propagating the integer coordinates through the
+extractor's transition functions (which are exact per face), and the hex
+elements are identified through the extractor's intermediate hex mesh.
+
+### Building and running the export
+
+geogram is optional and detected automatically (`~/geogram`, or an installed
+copy); `-DGEOGRAM_ROOT=<path>` points at a geogram source tree,
+`-DHEXEX_WITH_GEOGRAM=OFF` disables the bridge.
+
+```bash
+build/bin/export_trajectory tests/testdata/fiveadvanced.hexex /tmp/fiveadvanced
+```
+
+writes `/tmp/fiveadvanced_refined.geogram` and `/tmp/fiveadvanced_hex.geogram`
+and then reads both files back and verifies the attributes.
+
+### Measurements
+
+On the four meshes in `tests/testdata` (all structural checks pass):
+
+| mesh | tets | pieces | groups / cells | refined v / e / f / tets | volume error | hex elements without trajectory |
+|---|---|---|---|---|---|---|
+| fiveFine | 13492 | 89248 | 4418 / 4416 | 157021 / 407403 / 428881 / 836256 | 2.7e-15 | 2 edges, 1 face, 1 cell |
+| fiveadvanced | 13492 | 23846 | 96 / 96 | 34914 / 66348 / 79127 / 151796 | 4.4e-15 | **none** |
+| cylinderadvanced | 18461 | 37843 | 140 / 140 | 55832 / 111604 / 131471 / 256970 | 6.5e-15 | **none** |
+| sphere | 76 | 1475 | 224 / 216 | 2979 / 8307 / 8279 / 15392 | 3.8e-16 | 31 edges, 27 faces, 8 cells |
+
+"Volume error" is the relative difference between the volume of the input tets
+and the sum of the volumes of the pieces; it is the analogue of the area
+conservation of the quad layout export in `libQEx`. The few missing elements
+are the extractor's holes and the folds of the (very coarse) sphere map; they
+are reported as diagnostics rather than silently dropped. Details and the
+verification protocol are in
+[`PROGRESS_trajectory_export.md`](PROGRESS_trajectory_export.md).
+
 ## License
 
 `libHexEx` is free software: you can redistribute it and/or modify it under

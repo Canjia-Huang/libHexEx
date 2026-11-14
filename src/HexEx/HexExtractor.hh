@@ -27,6 +27,7 @@
 #include "Utils.hh"
 #include "MeshConversion.hh"
 #include "ExactPredicates.hh"
+#include "TrajectoryLayout.hh"
 #include "HexEx/Config/Export.hh"
 
 namespace HexEx {
@@ -120,6 +121,74 @@ public:
         addCellsToHexMesh(hexMesh);
         transferFeatureTagsToHexmesh(hexMesh);
     }
+
+    /**
+     * @brief Builds the hex mesh and, in addition, the trajectories of all its
+     *        elements through the input tetrahedral mesh.
+     *
+     * This does exactly what getHexMesh() does and then calls
+     * buildTrajectoryLayout(), which fills @p layout with the refined mesh
+     * (the subdivision of the input tet mesh along the integer grid planes)
+     * and the correspondence between its elements and the elements of
+     * @p hexMesh.
+     *
+     * @see HexTrajectoryLayout
+     */
+    template <typename HexMeshT>
+    void getHexMeshWithTrajectory(HexMeshT& hexMesh, HexTrajectoryLayout& layout, bool optimizedMergePosition = true)
+    {
+        HEXEX_DEBUG_ONLY(std::cout << "converting mesh to hex mesh with trajectory" << std::endl;)
+
+        hexMesh.clear(false);
+
+        calculateDifferencesInDartTypes();
+
+        mergeEquivalenceClassesOfAllDarts();
+
+        computeEquivalenceClasses();
+
+        addVerticesToHexMesh(hexMesh, optimizedMergePosition);
+        addCellsToHexMesh(hexMesh);
+        transferFeatureTagsToHexmesh(hexMesh);
+
+        TrajectoryMeshView view;
+        view.n_vertices = (int)hexMesh.n_vertices();
+        view.cells.resize((size_t)hexMesh.n_cells());
+        for (auto ch : hexMesh.cells())
+        {
+            std::vector<int>& cell = view.cells[(size_t)ch.idx()];
+            auto range = hexMesh.cell_vertices(ch);
+            for (auto it = range.first; it != range.second; ++it)
+                cell.push_back((int)it->idx());
+        }
+        view.faces.resize((size_t)hexMesh.n_faces());
+        for (auto fh : hexMesh.faces())
+        {
+            const std::vector<VertexHandle> vertices = hexMesh.get_halfface_vertices(hexMesh.halfface_handle(fh, 0));
+            std::vector<int>& face = view.faces[(size_t)fh.idx()];
+            for (size_t i = 0; i < vertices.size(); ++i)
+                face.push_back((int)vertices[i].idx());
+        }
+        view.edges.resize((size_t)hexMesh.n_edges());
+        for (auto eh : hexMesh.edges())
+        {
+            const HalfEdgeHandle heh = hexMesh.halfedge_handle(eh, 0);
+            view.edges[(size_t)eh.idx()][0] = (int)hexMesh.from_vertex_handle(heh).idx();
+            view.edges[(size_t)eh.idx()][1] = (int)hexMesh.to_vertex_handle(heh).idx();
+        }
+
+        buildTrajectoryLayout(layout, view);
+    }
+
+    /**
+     * @brief Fills @p layout with the trajectories, using the hex mesh
+     *        connectivity in @p view.
+     *
+     * Requires that the extraction has run and that getHexMesh() (or
+     * getHexMeshWithTrajectory()) has built the hex mesh, because the layout
+     * refers to the hex mesh's element indices.
+     */
+    void buildTrajectoryLayout(HexTrajectoryLayout& layout, const TrajectoryMeshView& view);
 
     template <typename TetMeshT>
     void getParametrizationMesh(TetMeshT& paramMesh)

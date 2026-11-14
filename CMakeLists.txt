@@ -48,6 +48,33 @@ endif()
 
 include(FetchContent)
 
+#
+# Optional geogram dependency: used by the geogram bridge (interfaces/geogram)
+# and by demo/export_trajectory, which write the trajectories as geogram meshes.
+#
+set(HEXEX_WITH_GEOGRAM "AUTO" CACHE STRING "Build the geogram bridge: AUTO, ON or OFF")
+set_property(CACHE HEXEX_WITH_GEOGRAM PROPERTY STRINGS AUTO ON OFF)
+
+if(NOT HEXEX_WITH_GEOGRAM STREQUAL "OFF")
+    if(NOT DEFINED GEOGRAM_ROOT AND EXISTS "$ENV{HOME}/geogram")
+        set(GEOGRAM_ROOT "$ENV{HOME}/geogram" CACHE PATH "Path to a geogram source tree or installation")
+    endif()
+    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+    find_package(Geogram QUIET)
+    if(GEOGRAM_FOUND)
+        set(HEXEX_GEOGRAM_FOUND TRUE)
+        message(STATUS "HexEx: building with geogram ${GEOGRAM_LIBRARIES}")
+    elseif(HEXEX_WITH_GEOGRAM STREQUAL "ON")
+        message(FATAL_ERROR "HexEx: HEXEX_WITH_GEOGRAM=ON but geogram was not found. "
+                            "Set GEOGRAM_ROOT to a geogram source tree or installation.")
+    else()
+        set(HEXEX_GEOGRAM_FOUND FALSE)
+        message(STATUS "HexEx: geogram not found, the geogram bridge and export_trajectory will not be built.")
+    endif()
+else()
+    set(HEXEX_GEOGRAM_FOUND FALSE)
+endif()
+
 # Third-party dependencies live in git submodules below third_party/:
 #   third_party/OpenVolumeMesh   (v3.4.1)
 #   third_party/googletest       (v1.17.0, only needed for the unit tests)
@@ -84,6 +111,7 @@ set(SOURCE_FILES
     src/HexEx/HexExtractor.cc
     src/HexEx/HPort.cc
     src/HexEx/MergePosition.cc
+    src/HexEx/TrajectoryLayout.cc
     src/HexEx/Utils.cc
     src/HexEx/predicates.c)
 
@@ -243,9 +271,16 @@ export(EXPORT HexExTargets
 
 
 
+if(HEXEX_GEOGRAM_FOUND)
+    add_subdirectory(interfaces/geogram)
+endif()
+
 if(HEXEX_STANDALONE_BUILD)
    add_subdirectory(demo/cmdline_tool)
    add_subdirectory(demo/minimum_example)
+   if(HEXEX_GEOGRAM_FOUND)
+       add_subdirectory(demo/export_trajectory)
+   endif()
 endif()
 
 

@@ -29,6 +29,7 @@ FILE(GLOB UNITTEST_SRC
     gridisomorphism_test.cc
     navigation_test.cc
     predicate_test.cc
+    trajectory_test.cc
     unittest.cc)
 
 # Create unittest executable
