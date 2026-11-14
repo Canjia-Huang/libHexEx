@@ -1,9 +1,9 @@
 libHexEx – A Robust Hexahedral Mesh Extractor
 ======
 
-| Input (tet) | Output (complex) |
-| :---: | :---: |
-| <img src="./assets/input.png"> | <img src="./assets/complex.png"> |
+| Input (tet) | Output (hex) | Output (complex) |
+| :---: | :---: | :---: |
+| <img src="./assets/input.png"> | <img src="./assets/hex.png"> | <img src="./assets/complex.png"> |
 
 ## Changes compared to the original libHexEx
 
