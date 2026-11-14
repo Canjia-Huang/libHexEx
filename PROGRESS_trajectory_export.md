@@ -145,7 +145,15 @@ cd build && ./bin/unittests --gtest_filter='Trajectory.*'
 9. **refined 边的「在网格线上」判定**：两端点共享的两个整数平面（同一 piece 的局部标架）→ 网格线；三个平面 → 格点。跨 piece 合并平面集合是错的（不同标架）。因此每 piece 单独存 `(vertex → 局部平面)`。
 10. **折线要沿连接关系走**，不能按坐标排序：折叠参数化下同一条 hex 边可能被访问两次（坐标非单调、出现重复格点）。按邻接走链；分支时退化为排序并计入 `n_hex_edges_with_branched_polyline`。
 11. **退化 tet**（参数体积为 0，实测 2/22/5/84 个）：裁剪会得到非零的伪体积，必须跳过（`tv > 1e-9`）。否则体积守恒破坏（曾导致 17% 误差）。
-12. 几何是 3D 的还是参数的：refined 网格输出 3D 坐标（`getInverseParametrizationMatrix` 每 tet 一次）；参数空间只用于裁剪和体积。
+12. **OVM 与 geogram 的 hex 顶点顺序不同**：geogram 的 hexahedron 约定（`GEO::hex_descriptor`）是
+    `v0=(0,0,0), v1=(1,0,0), v2=(0,1,0), v3=(1,1,0), v4=(0,0,1), v5=(1,0,1), v6=(0,1,1), v7=(1,1,1)`，
+    即 v1/v2/v4 是 v0 的 3 个棱邻点，v3/v5/v6 分别是 (v1,v2)/(v1,v4)/(v2,v4) 的共同邻点。extractor 的顺序来自
+    局部 UV 立方体，直接写会让 geogram 把面对角线当成棱（96 个格胞中 94 个扭掉、519 条"棱"不是网格边）。
+    因此 `GeogramBridge::toHexMesh` 用**网格自身的棱集合**重建每个格胞：取最小顶点为 v0，把 3 个邻点按
+    **右手系**排成 v1/v2/v4，再用共同邻点定 v3/v5/v6/v7；失败时回退并计数。修复后四个测试网格均为
+    `bad edges 0 / bad cells 0`（用 geogram 回读验证 12 条 descriptor 棱都在网格棱集合里），合成 2×2×2 立方体
+    的面平面性误差为 0。注意：抽取出的 hex 面本身可能不共面（merge position / 粗参数化），这与顶点顺序无关。
+13. 几何是 3D 的还是参数的：refined 网格输出 3D 坐标（`getInverseParametrizationMatrix` 每 tet 一次）；参数空间只用于裁剪和体积。
 
 ---
 

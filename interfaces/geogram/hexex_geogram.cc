@@ -26,7 +26,11 @@
 #include <geogram/mesh/mesh_io.h>
 
 #include <algorithm>
+#include <array>
+#include <cstdint>
+#include <iostream>
 #include <sstream>
+#include <unordered_set>
 
 namespace HexEx
 {
@@ -54,6 +58,98 @@ inline unsigned int asUnsigned(int v)
 {
     geo_debug_assert(v >= 0);
     return v < 0 ? 0u : (unsigned int)v;
+}
+
+inline uint64_t edgeKey(int a, int b)
+{
+    if (a > b) std::swap(a, b);
+    return ((uint64_t)(uint32_t)a << 32) | (uint64_t)(uint32_t)b;
+}
+
+/**
+ * @brief Reorders the eight vertices of a hexahedron into geogram's convention.
+ *
+ * geogram's hexahedron (see GEO::hex_descriptor) assumes the vertex order
+ *
+ *     v0 = (0,0,0)   v1 = (1,0,0)   v2 = (0,1,0)   v3 = (1,1,0)
+ *     v4 = (0,0,1)   v5 = (1,0,1)   v6 = (0,1,1)   v7 = (1,1,1)
+ *
+ * i.e. v1, v2 and v4 are the three edge neighbours of v0, and v3, v5 and v6
+ * are the neighbours of (v1,v2), (v1,v4) and (v2,v4). The extractor's own
+ * order comes from the local UV cubes of the parametrization and does not
+ * follow this convention, so the cells have to be reordered before they are
+ * handed to geogram - otherwise geogram interprets face diagonals as edges and
+ * the cells are twisted.
+ *
+ * The three neighbours of v0 are assigned to v1, v2 and v4 such that the frame
+ * is right-handed; the cell's shape does not depend on that choice.
+ */
+bool reorderHexCell(const std::array<int, 8>& cell,
+                    const std::unordered_set<uint64_t>& edges,
+                    const std::vector<Vec3d>& positions,
+                    std::array<int, 8>& order)
+{
+    const auto adjacent = [&](int a, int b) {
+        return edges.find(edgeKey(a, b)) != edges.end();
+    };
+
+    const int v0 = *std::min_element(cell.begin(), cell.end());
+
+    std::vector<int> neighbors;
+    for (size_t i = 0; i < cell.size(); ++i)
+        if (cell[i] != v0 && adjacent(v0, cell[i])) neighbors.push_back(cell[i]);
+    if (neighbors.size() != 3) return false;
+    std::sort(neighbors.begin(), neighbors.end());
+
+    // a right-handed assignment of the three neighbours to (v1, v2, v4)
+    static const int permutations[6][3] = {
+        {0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}
+    };
+    int assignment[3] = { 0, 1, 2 };
+    for (int p = 0; p < 6; ++p)
+    {
+        const Vec3d d1 = positions[neighbors[permutations[p][0]]] - positions[v0];
+        const Vec3d d2 = positions[neighbors[permutations[p][1]]] - positions[v0];
+        const Vec3d d4 = positions[neighbors[permutations[p][2]]] - positions[v0];
+        if (((d1 % d2) | d4) > 0)
+        {
+            for (int i = 0; i < 3; ++i) assignment[i] = permutations[p][i];
+            break;
+        }
+    }
+
+    const int v1 = neighbors[assignment[0]];
+    const int v2 = neighbors[assignment[1]];
+    const int v4 = neighbors[assignment[2]];
+
+    const auto commonNeighbor = [&](int a, int b) -> int {
+        for (size_t i = 0; i < cell.size(); ++i)
+        {
+            const int v = cell[i];
+            if (v == v0 || v == a || v == b) continue;
+            if (adjacent(a, v) && adjacent(b, v)) return v;
+        }
+        return -1;
+    };
+
+    const int v3 = commonNeighbor(v1, v2); // neighbour of v1 and v2
+    const int v5 = commonNeighbor(v1, v4); // neighbour of v1 and v4
+    const int v6 = commonNeighbor(v2, v4); // neighbour of v2 and v4
+    if (v3 < 0 || v5 < 0 || v6 < 0) return false;
+
+    int v7 = -1;
+    for (size_t i = 0; i < cell.size(); ++i)
+    {
+        const int v = cell[i];
+        if (v == v0 || v == v1 || v == v2 || v == v3 || v == v4 || v == v5 || v == v6) continue;
+        v7 = v;
+        break;
+    }
+    if (v7 < 0) return false;
+    if (!adjacent(v3, v7) || !adjacent(v5, v7) || !adjacent(v6, v7)) return false;
+
+    order = std::array<int, 8>{{ v0, v1, v2, v3, v4, v5, v6, v7 }};
+    return true;
 }
 
 } // namespace
@@ -227,13 +323,37 @@ void GeogramBridge::toHexMesh(const HexTrajectoryLayout& layout,
     const GEO::index_t nCells = (GEO::index_t)connectivity.cells.size();
     if (nCells > 0)
     {
+        // geogram's hexahedra use a different vertex order than the extractor
+        const std::unordered_set<uint64_t> edges = [&]() {
+            std::unordered_set<uint64_t> result;
+            result.reserve(connectivity.edges.size() * 2);
+            for (size_t e = 0; e < connectivity.edges.size(); ++e)
+                result.insert(edgeKey(connectivity.edges[e][0], connectivity.edges[e][1]));
+            return result;
+        }();
+
         const GEO::index_t first = out.cells.create_hexes(nCells);
+        size_t nFallbacks = 0;
         for (GEO::index_t c = 0; c < nCells; ++c)
         {
             const std::vector<int>& cell = connectivity.cells[c];
-            for (GEO::index_t i = 0; i < 8 && i < cell.size(); ++i)
-                out.cells.set_vertex(first + c, i, (GEO::index_t)cell[i]);
+            std::array<int, 8> order;
+            if (cell.size() != 8 ||
+                !reorderHexCell(std::array<int, 8>{{ cell[0], cell[1], cell[2], cell[3],
+                                                     cell[4], cell[5], cell[6], cell[7] }},
+                                edges, vertices, order))
+            {
+                ++nFallbacks;
+                for (GEO::index_t i = 0; i < 8 && i < cell.size(); ++i)
+                    out.cells.set_vertex(first + c, i, (GEO::index_t)cell[i]);
+                continue;
+            }
+            for (GEO::index_t i = 0; i < 8; ++i)
+                out.cells.set_vertex(first + c, i, (GEO::index_t)order[i]);
         }
+        if (nFallbacks > 0)
+            std::cerr << "GeogramBridge: warning: " << nFallbacks
+                      << " hexahedra could not be reordered into geogram's vertex convention" << std::endl;
         GEO::Attribute<unsigned int> cellHexCell(out.cells.attributes(), ATTR_HEX_CELL);
         GEO::Attribute<unsigned int> cellNRefined(out.cells.attributes(), ATTR_N_REFINED);
         GEO::Attribute<unsigned int> cellNPieces(out.cells.attributes(), ATTR_N_PIECES);

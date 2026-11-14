@@ -126,6 +126,12 @@ public:
     /**
      * @brief Fills @p out with the extracted hex mesh and its attributes.
      *
+     * The cells are reordered into geogram's hexahedron convention
+     * (`v0 = (0,0,0), v1 = (1,0,0), v2 = (0,1,0), v3 = (1,1,0), v4 = (0,0,1),
+     * v5 = (1,0,1), v6 = (0,1,1), v7 = (1,1,1)`): the extractor's own order
+     * comes from the local UV cubes of the parametrization and would make
+     * geogram treat face diagonals as edges.
+     *
      * @param layout the layout the hex mesh was extracted with
      * @param vertices the hex mesh's vertex positions
      * @param connectivity the hex mesh's cells, faces and edges
