@@ -24,15 +24,16 @@
  * Reads a tetrahedral mesh with a per-cell integer grid map (.hexex), extracts
  * the hexahedral mesh and writes it. The format of the hex mesh is chosen from
  * the output file name: `.ovm` is written with OpenVolumeMesh, every other
- * extension with geogram (.geogram, .mesh, .obj, ...). Optionally the
- * trajectories of the extracted elements - the refined mesh (the input tet mesh
- * cut along all integer grid planes) and the hex mesh - are written as geogram
- * meshes, where every piece of information is kept in mesh attributes.
+ * extension with geogram (.geogram, .mesh, .obj, ...). Optionally it also
+ * writes the embedded cell complex - the input tet mesh subdivided along all
+ * integer grid planes, which carries the trajectories of the extracted hex
+ * elements - as a geogram mesh, where every piece of information is kept in
+ * mesh attributes.
  *
  * Command line:
  *
  *   hexex --in <input.hexex> --out <hex.ovm|hex.geogram>
- *         [--out-poly <poly.geogram>] [--check]
+ *         [--out-complex <complex.geogram>] [--check]
  *
  * @see HexEx::HexTrajectoryLayout, HexEx::GeogramBridge
  */
@@ -179,8 +180,9 @@ int main(int argc, char** argv)
             "hexex - extract a hexahedral mesh from a tetrahedral mesh with an integer grid map\n"
             "Based on the original libHexEx command line tool (cmdline_tool): it extracts the hex "
             "mesh exactly as before and additionally records the trajectories of its vertices, "
-            "edges, facets and cells through the input tet mesh, which are available as a "
-            "polygonal mesh with all information stored in mesh attributes (see --out-poly).");
+            "edges, facets and cells through the input tet mesh, which are available as an "
+            "embedded cell complex with all information stored in mesh attributes (see "
+            "--out-complex).");
     /*
      * Print the footer verbatim: CLI11's paragraph formatting would re-wrap it and
      * strip the indentation.
@@ -194,11 +196,11 @@ int main(int argc, char** argv)
 
     std::string inputFile;
     std::string outputFile;
-    std::string polyFile;
+    std::string complexFile;
 
     bool verbose = false;
     bool simpleMergePosition = false;
-    bool polySurfaceOnly = false;
+    bool complexSurfaceOnly = false;
     bool check = false;
 
     app.add_option("--in,-i", inputFile,
@@ -209,20 +211,21 @@ int main(int argc, char** argv)
             "the cells and the trajectory attributes (.mesh keeps the cells but not the "
             "attributes, .obj/.ply/.stl only the surface). A directory derives the file name.");
 #ifdef HEXEX_HAVE_GEOGRAM
-    app.add_option("--out-poly,--o-poly", polyFile,
-            "The polygonal mesh - the trajectory of the extracted elements, i.e. the input tet "
-            "mesh cut along all integer grid planes - in geogram format. Use .geogram to keep "
-            "the tetrahedra/cells and all attributes (a directory derives the file name).");
+    app.add_option("--out-complex,--o-complex", complexFile,
+            "The embedded cell complex - the input tet mesh subdivided along all integer grid "
+            "planes into vertices, edges, facets and tetrahedra, which carries the trajectories "
+            "of the extracted hex elements - in geogram format. Use .geogram to keep the cells "
+            "and all attributes (a directory derives the file name).");
 #else
-    app.add_option("--out-poly,--o-poly", polyFile,
-            "The polygonal mesh (trajectory of the extracted elements) in geogram format "
-            "(not available in this build)");
+    app.add_option("--out-complex,--o-complex", complexFile,
+            "The embedded cell complex (the subdivision carrying the trajectories) in geogram "
+            "format (not available in this build)");
 #endif
     app.add_flag("-v,--verbose", verbose, "Print the extractor's progress output");
     app.add_flag("--simple-merge-position", simpleMergePosition,
             "Use the unoptimized merge positions (faster, slightly different vertex positions)");
-    app.add_flag("--poly-surface-only", polySurfaceOnly,
-            "Omit the tetrahedra of the polygonal mesh, i.e. write only the trajectories of the "
+    app.add_flag("--complex-surface-only", complexSurfaceOnly,
+            "Omit the tetrahedra of the cell complex, i.e. write only the trajectories of the "
             "hex vertices, edges and faces (smaller files)");
     app.add_flag("--check,--validate", check,
             "Check the trajectory layout (volume conservation, cracks, coverage) and report it");
@@ -231,10 +234,10 @@ int main(int argc, char** argv)
     CLI11_PARSE(app, argc, argv);
 
 #ifndef HEXEX_HAVE_GEOGRAM
-    if (!polyFile.empty() || (!outputFile.empty() && !isOvmFile(outputFile)))
+    if (!complexFile.empty() || (!outputFile.empty() && !isOvmFile(outputFile)))
     {
         std::cerr << "This HexEx build has no geogram support: only the OpenVolumeMesh format "
-                     "(.ovm) is available, and --out-poly is unavailable. Configure with "
+                     "(.ovm) is available, and --out-complex is unavailable. Configure with "
                      "-DGEOGRAM_ROOT=<path> or -DHEXEX_WITH_GEOGRAM=ON."
                   << std::endl;
         return 2;
@@ -243,11 +246,11 @@ int main(int argc, char** argv)
 
     const std::string model = modelName(inputFile);
     outputFile = resolveOutput(outputFile, model, "_hex.ovm");
-    polyFile = resolveOutput(polyFile, model, "_poly.geogram");
+    complexFile = resolveOutput(complexFile, model, "_complex.geogram");
 
-    if (outputFile.empty() && polyFile.empty() && !check)
+    if (outputFile.empty() && complexFile.empty() && !check)
     {
-        std::cerr << "Nothing to do: pass --out, --out-poly or --check." << std::endl;
+        std::cerr << "Nothing to do: pass --out, --out-complex or --check." << std::endl;
         return 2;
     }
 
@@ -275,7 +278,7 @@ int main(int argc, char** argv)
      * output and --check are built from) is only computed if it was asked for.
      * ------------------------------------------------------------------
      */
-    const bool needLayout = !polyFile.empty() || check || (!outputFile.empty() && !isOvmFile(outputFile));
+    const bool needLayout = !complexFile.empty() || check || (!outputFile.empty() && !isOvmFile(outputFile));
 
     HexExtractor extractor(tetMesh, parameters);
     extractor.extract();
@@ -338,17 +341,17 @@ int main(int argc, char** argv)
     }
 
 #ifdef HEXEX_HAVE_GEOGRAM
-    if (!polyFile.empty())
+    if (!complexFile.empty())
     {
-        if (!GeogramBridge::saveRefinedMesh(layout, polyFile, !polySurfaceOnly))
+        if (!GeogramBridge::saveRefinedMesh(layout, complexFile, !complexSurfaceOnly))
         {
-            std::cerr << "Could not write " << polyFile << std::endl;
+            std::cerr << "Could not write " << complexFile << std::endl;
             return 4;
         }
-        std::cout << "wrote " << polyFile << " (" << layout.n_pieces << " pieces, "
-                  << (polySurfaceOnly ? 0 : layout.n_refined_cells) << " refined tetrahedra, "
-                  << layout.n_refined_facets << " facets, all information in mesh attributes)"
-                  << std::endl;
+        std::cout << "wrote " << complexFile << " (embedded cell complex: " << layout.n_pieces
+                  << " pieces, " << (complexSurfaceOnly ? 0 : layout.n_refined_cells)
+                  << " tetrahedra, " << layout.n_refined_facets
+                  << " facets, all information in mesh attributes)" << std::endl;
     }
 #endif
 

@@ -96,7 +96,7 @@ refined 网格的 facet/edge 存储**只包含 piece 边界**（piece 之间和�
 | `interfaces/geogram/CMakeLists.txt` | **新增**：`HexExGeogram` 库 |
 | `cmake/FindGeogram.cmake` | **新增**（从 libQEx 移植）：支持已安装的 geogram 或源码树 + 构建目录 |
 | `demo/export_trajectory/main.cc` + CMakeLists | **新增**：导出工具 + 两级验收 + geogram 回读校验 |
-| `apps/hexex/main.cc` + CMakeLists | **新增**：`hexex` 命令行程序（CLI11），对齐 libQEx 的 `qex`：`--in/--out/--out-poly(-o-poly)/--check/--poly-surface-only/--simple-merge-position/-v`；`--out` 按后缀选格式（`.ovm` → OpenVolumeMesh，其余 → geogram）；默认静默；只有 `--out-poly`、`--check` 或非 `.ovm` 的 `--out` 时才构建轨迹 |
+| `apps/hexex/main.cc` + CMakeLists | **新增**：`hexex` 命令行程序（CLI11），对齐 libQEx 的 `qex`：`--in/--out/--out-complex(-o-complex)/--check/--complex-surface-only/--simple-merge-position/-v`；`--out` 按后缀选格式（`.ovm` → OpenVolumeMesh，其余 → geogram）；refined 网格即 embedded cell complex；默认静默；只有 `--out-complex`、`--check` 或非 `.ovm` 的 `--out` 时才构建轨迹 |
 | `src/HexEx/Verbose.hh/.cc` | **新增**：`setVerbose()/verbose()`；`HEXEX_DEBUG_ONLY` 由编译期改为运行期开关（`apps/hexex` 默认关闭输出） |
 | `third_party/CLI11` | **新增** git submodule（v2.7.2，与 libQEx 一致）；缺失时 CMake 用 FetchContent 拉同版本 |
 | `tests/trajectory_test.cc` | **新增** gtest：立方体（含 transition）100% 覆盖；`testdata/sphere.hexex` 结构不变量 |
@@ -113,10 +113,10 @@ cmake --build build -j8
 # 命令行程序（推荐）
 ./build/bin/hexex --in tests/testdata/fiveadvanced.hexex \
     --out /tmp/fiveadvanced_hex.geogram \
-    --out-poly /tmp/fiveadvanced_poly.geogram --check
+    --out-complex /tmp/fiveadvanced_complex.geogram --check
 # --out 按后缀选格式：.ovm -> OpenVolumeMesh，其余 -> geogram（仅 .geogram 保留
 # 胞与属性；.mesh 保留胞不保留属性；.obj/.ply 仅表面）
-# --poly-surface-only 省略多面体网格中的四面体；不加 geogram 输出时只提取、不建轨迹。
+# --complex-surface-only 省略 cell complex 中的四面体；不加 geogram 输出时只提取、不建轨迹。
 
 # 完整校验 demo（写出 + 回读逐项校验）
 ./build/bin/export_trajectory tests/testdata/fiveadvanced.hexex /tmp/fiveadvanced

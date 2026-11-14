@@ -102,7 +102,7 @@ Executables go to `build/bin`, libraries to `build/lib`.
 does, except for the read-back verification):
 
 ```bash
-build/bin/hexex --in <input.hexex> --out <hex.ovm|hex.geogram> [--out-poly <poly.geogram>]
+build/bin/hexex --in <input.hexex> --out <hex.ovm|hex.geogram> [--out-complex <complex.geogram>]
 ```
 
 The format of the hex mesh is chosen from the output file name:
@@ -118,23 +118,24 @@ The format of the hex mesh is chosen from the output file name:
 |---|---|
 | `-i,--in` | input tet mesh with a per-cell integer grid map (`.hexex`) |
 | `-o,--out` | extracted hex mesh; the format is chosen from the extension (see above) |
-| `--out-poly,--o-poly` | the polygonal mesh (the trajectory of the extracted elements: the input tet mesh cut along all integer grid planes) as a geogram mesh, with the correspondence to the hex mesh in the attributes |
-| `--poly-surface-only` | omit the tetrahedra of the polygonal mesh (only vertices/edges/facets, smaller files) |
+| `--out-complex,--o-complex` | the embedded cell complex - the input tet mesh subdivided along all integer grid planes into vertices, edges, facets and tetrahedra - as a geogram mesh, carrying the trajectories of the extracted hex elements in the attributes |
+| `--complex-surface-only` | omit the tetrahedra of the cell complex (only vertices/edges/facets, smaller files) |
 | `--check` | check the trajectory layout (volume conservation, cracks, coverage) and report it |
 | `--simple-merge-position` | use the unoptimized merge positions |
 | `-v,--verbose` | print the extractor's progress output (quiet by default) |
 
-`--out` and `--out-poly` also accept a directory, in which case the file names
-are derived from the input mesh (`<input>_hex.ovm`, `<input>_poly.geogram`).
-The trajectory layout is only computed when `--out-poly`, `--check` or a
-non-`.ovm` `--out` is given. Run `build/bin/hexex --help` for the details.
+`--out` and `--out-complex` also accept a directory, in which case the file
+names are derived from the input mesh (`<input>_hex.ovm`,
+`<input>_complex.geogram`). The trajectory layout is only computed when
+`--out-complex`, `--check` or a non-`.ovm` `--out` is given. Run
+`build/bin/hexex --help` for the details.
 
 Example:
 
 ```bash
 build/bin/hexex --in tests/testdata/fiveadvanced.hexex \
     --out /tmp/fiveadvanced_hex.geogram \
-    --out-poly /tmp/fiveadvanced_poly.geogram --check
+    --out-complex /tmp/fiveadvanced_complex.geogram --check
 ```
 
 ### Full verification demo
@@ -144,7 +145,7 @@ build/bin/export_trajectory tests/testdata/fiveadvanced.hexex /tmp/fiveadvanced
 ```
 
 writes `<prefix>_refined.geogram` and `<prefix>_hex.geogram` (the same two
-meshes the CLI writes with `--out-poly` and a `.geogram` `--out`) and
+meshes the CLI writes with `--out-complex` and a `.geogram` `--out`) and
 additionally reads both files back and verifies that all attributes survived.
 
 ### Measurements
