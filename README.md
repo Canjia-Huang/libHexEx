@@ -1,6 +1,108 @@
 libHexEx – A Robust Hexahedral Mesh Extractor
 ======
 
+| Input (tet) | Output (complex) |
+| :---: | :---: |
+| <img src="./assets/input.png"> | <img src="./assets/complex.png"> |
+
+## Changes compared to the original libHexEx
+
+This is a fork of the original `libHexEx`: the extraction algorithm itself is untouched,
+but the build system and the API surface around it were reworked, and the **embedded cell
+complex that records where every extracted element comes from is now exposed**.
+
+### Dependency and build refactoring
+
+* **Dependencies are git submodules** instead of something you have to install by hand:
+  * `third_party/OpenVolumeMesh` — [OpenVolumeMesh](https://gitlab.vci.rwth-aachen.de:9000/OpenVolumeMesh/OpenVolumeMesh),
+    pinned to the tag `v3.4.1`. No separate OpenVolumeMesh installation is needed any more.
+  * `third_party/googletest` — [GoogleTest](https://github.com/google/googletest) v1.17.0,
+    used by the unit tests only.
+  * `third_party/CLI11` — [CLI11](https://github.com/CLIUtils/CLI11) v2.7.2, used by the
+    `hexex` application.
+  * `geogram` stays optional and is detected automatically (`~/geogram`, or an installed
+    copy); `-DGEOGRAM_ROOT=<path>` points at a geogram source tree,
+    `-DHEXEX_WITH_GEOGRAM=OFF` disables the bridge.
+  * When the submodules are not initialized, CMake falls back to downloading the same
+    versions via FetchContent, so a plain non-recursive clone still configures.
+* **CMake refactoring**: C++17, target based linking and usage requirements, config aware
+  output directories — every executable ends up in `<build>/bin`, every library in
+  `<build>/lib` (there is no extra `<build>/Build` directory any more), and the unit test
+  binary is `<build>/bin/unittests`.
+* **New build targets**: the `HexExGeogram` bridge library, the `hexex` application
+  (`apps/hexex`) and the `export_trajectory` demo, next to the pre-existing `cmdline_tool`
+  and `minimum_example`.
+* The extractor's progress/debug output is now a runtime switch (`HexEx::setVerbose()`)
+  instead of a compile-time one, so the command line application can run quietly.
+
+### Embedded cell complex / trajectory support (new)
+
+While extracting, HexEx traces grid edges (darts) through the input tetrahedra. Those
+traces are now recorded, which makes the *where does every extracted element come from*
+available as a genuine **embedded cell complex** — the input tetrahedral mesh cut along
+all integer grid planes into vertices, edges, facets and tetrahedra — together with
+
+* the **polyline of every hex edge** (the chain of pieces it passes through),
+* the **patch of every hex face** and the **pieces of every hex cell**,
+* the **correspondence** between the hex mesh elements and the elements of the complex,
+* per vertex / edge / facet / cell labels stating where each element comes from (the input
+  tet vertex / edge / face / cell it lies on).
+
+API: `HexEx::HexTrajectoryLayout` plus `HexEx::HexExtractor::getHexMeshWithTrajectory()`.
+Writers: `demo/export_trajectory` (writes both meshes and verifies them by reading them
+back) and the `HexEx::GeogramBridge` (`toRefinedMesh()`, `toHexMesh()`, `save()`), which
+stores *all* of the above in `GEO::Mesh` **attributes** (`kind`, `tet_vertex`, `tet_edge`,
+`tet_face`, `tet_cell`, `hex_vertex`, `hex_edge`, `hex_edge_step`, `hex_face`, `hex_cell`,
+`grid`, `piece`, `border`, `n_refined`, `n_pieces`), so exporting to `.geogram` loses
+nothing. Attributes that can be "not there" are `int` (holding -1), all others are
+`unsigned int`.
+
+The correspondence does not use a global integer grid frame: such a frame does not exist
+for a general integer-grid map, because the frame rotates around the singular edges of the
+parametrization. Instead, the pieces of every unit cube are grouped by propagating the
+extractor's transition functions, which are exact per face.
+
+Measurements and the verification protocol are documented in
+[`PROGRESS_trajectory_export.md`](PROGRESS_trajectory_export.md).
+
+### Building
+
+```bash
+git clone --recurse-submodules <this repository>
+cmake -S . -B build
+cmake --build build
+```
+
+(Without `--recurse-submodules`: `git submodule update --init --recursive`.)
+
+Optional dependency selection:
+
+```bash
+cmake -S . -B build -DGEOGRAM_ROOT=~/geogram   # where to find geogram
+cmake -S . -B build -DHEXEX_WITH_GEOGRAM=OFF   # build without the geogram bridge
+```
+
+Executables go to `build/bin`, libraries to `build/lib`.
+
+### Using the `hexex` command line application
+
+`hexex` replaces the former `demo/cmdline_tool` (and can do what the `export_trajectory`
+demo does, except for the read-back verification):
+
+```bash
+build/bin/hexex --in <input.hexex> --out <hex.ovm|hex.geogram> [--out-complex <complex.geogram>]
+```
+
+The format of `--out` is chosen from the file name: `.ovm` is written with OpenVolumeMesh,
+every other extension with geogram (`.geogram`, `.mesh`, ...; only `.geogram` keeps the
+cells and the trajectory attributes). `--out` and `--out-complex` also accept a directory,
+in which case the file names are derived from the input mesh (`<input>_hex.ovm`,
+`<input>_complex.geogram`). `--out-complex` writes the embedded cell complex described
+above (the trajectories of the extracted elements) as a geogram mesh (with all attributes).
+Run `build/bin/hexex --help` for the details.
+
+---
+
 `libHexEx` is an implementation of [HexEx](https://www.graphics.rwth-aachen.de/publication/03260/) \[[Lyon et al. 2016](http://dx.doi.org/10.1145/2897824.2925976)\] distributed under GPLv3.
 
 If you make use of `libHexEx` in your scientific work, please cite our paper. For your convenience,
@@ -33,143 +135,6 @@ maps pose significant challenges to the hex mesh extractor.
 Read [our paper](https://www.graphics.rwth-aachen.de/publication/03260/) if you want
 to find out why hex extraction is complicated and how we tackle it or skip ahead and
 download the source code if you don't care about the details and just need results.
-
-
-## Trajectories of the extracted elements (new)
-
-| Input (tet mesh + integer grid map) | Embedded cell complex (colored by hex cell) |
-| :---: | :---: |
-| <img src="./assets/input.png" width="330"> | <img src="./assets/complex.png" width="330"> |
-
-While extracting, HexEx traces grid edges (darts) through the input tetrahedra.
-Those traces are now recorded, which makes the *where does every extracted
-element come from* available as a **subdivision of the input tetrahedral
-mesh**:
-
-* the **refined mesh**: every input tet cut by all integer grid planes. Every
-  piece `tet ∩ unit cube` is tetrahedralized by coning from its centroid to the
-  triangles of its triangulated boundary, so the refined mesh stores vertices,
-  edges, triangular facets *and* tetrahedra;
-* the **correspondence** between the refined elements and the extracted hex
-  mesh: each refined vertex/edge/facet/cell knows the hex vertex/edge/face/cell
-  it belongs to (or -1 if there is none, e.g. inside the holes of the
-  extractor);
-* the **polyline of every hex edge**, the **patch of every hex face** and the
-  **pieces of every hex cell**, exposed explicitly as well as through the
-  attributes.
-
-API: `HexEx::HexTrajectoryLayout` plus
-`HexEx::HexExtractor::getHexMeshWithTrajectory()`. Writer: the `HexExGeogram`
-bridge (`toRefinedMesh()`, `toHexMesh()`, `save()`), which stores everything in
-`GEO::Mesh` **attributes**, so exporting to `.geogram` loses nothing:
-
-| mesh | element | attributes |
-|---|---|---|
-| refined | vertex | `kind`, `tet_vertex`, `tet_edge`, `tet_face`, `tet_cell`, `hex_vertex`, `grid` |
-| refined | edge | `hex_edge`, `hex_edge_step`, `tet_edge`, `piece`, `grid` |
-| refined | facet | `hex_face`, `tet_face`, `piece`, `kind` |
-| refined | cell | `piece`, `tet_cell`, `hex_cell` |
-| hex | vertex | `hex_vertex`, `n_refined` |
-| hex | edge | `hex_edge`, `n_refined`, `border` |
-| hex | face | `hex_face`, `n_refined`, `border` |
-| hex | cell | `hex_cell`, `n_refined`, `n_pieces` |
-
-Attributes that can be "not there" are `int` (holding -1); all others are
-`unsigned int`. See `interfaces/geogram/hexex_geogram.hh` for the full table.
-
-The correspondence is built **without a global integer grid frame**: such a
-frame does not exist for a general integer-grid map, because the frame rotates
-around the singular edges of the parametrization. Instead the pieces of every
-unit cube are grouped by propagating the integer coordinates through the
-extractor's transition functions (which are exact per face), and the hex
-elements are identified through the extractor's intermediate hex mesh.
-
-### Building
-
-Dependencies are git submodules in `third_party/` (`OpenVolumeMesh`,
-`googletest` for the tests and `CLI11` for the `hexex` application), so clone
-with `--recurse-submodules` (or run `git submodule update --init --recursive`).
-geogram is optional and detected automatically (`~/geogram`, or an installed
-copy); `-DGEOGRAM_ROOT=<path>` points at a geogram source tree,
-`-DHEXEX_WITH_GEOGRAM=OFF` disables the bridge.
-
-```bash
-cmake -S . -B build
-cmake --build build -j8
-```
-
-Executables go to `build/bin`, libraries to `build/lib`.
-
-### Using the `hexex` command line application
-
-`hexex` replaces `demo/cmdline_tool` (and can do what `demo/export_trajectory`
-does, except for the read-back verification):
-
-```bash
-build/bin/hexex --in <input.hexex> --out <hex.ovm|hex.geogram> [--out-complex <complex.geogram>]
-```
-
-The format of the hex mesh is chosen from the output file name:
-
-* `.ovm` is written with OpenVolumeMesh (vertices/edges/faces/cells, no extra
-  attributes);
-* every other extension is written with geogram, e.g. `.geogram`, `.mesh`,
-  `.obj`, `.ply`. Only `.geogram` keeps the cells *and* the trajectory
-  attributes; `.mesh` keeps the cells but not the attributes, and
-  `.obj`/`.ply`/`.stl` only the surface.
-
-| option | meaning |
-|---|---|
-| `-i,--in` | input tet mesh with a per-cell integer grid map (`.hexex`) |
-| `-o,--out` | extracted hex mesh; the format is chosen from the extension (see above) |
-| `--out-complex,--o-complex` | the embedded cell complex - the input tet mesh subdivided along all integer grid planes into vertices, edges, facets and tetrahedra - as a geogram mesh, carrying the trajectories of the extracted hex elements in the attributes |
-| `--complex-surface-only` | omit the tetrahedra of the cell complex (only vertices/edges/facets, smaller files) |
-| `--check` | check the trajectory layout (volume conservation, cracks, coverage) and report it |
-| `--simple-merge-position` | use the unoptimized merge positions |
-| `-v,--verbose` | print the extractor's progress output (quiet by default) |
-
-`--out` and `--out-complex` also accept a directory, in which case the file
-names are derived from the input mesh (`<input>_hex.ovm`,
-`<input>_complex.geogram`). The trajectory layout is only computed when
-`--out-complex`, `--check` or a non-`.ovm` `--out` is given. Run
-`build/bin/hexex --help` for the details.
-
-Example:
-
-```bash
-build/bin/hexex --in tests/testdata/fiveadvanced.hexex \
-    --out /tmp/fiveadvanced_hex.geogram \
-    --out-complex /tmp/fiveadvanced_complex.geogram --check
-```
-
-### Full verification demo
-
-```bash
-build/bin/export_trajectory tests/testdata/fiveadvanced.hexex /tmp/fiveadvanced
-```
-
-writes `<prefix>_refined.geogram` and `<prefix>_hex.geogram` (the same two
-meshes the CLI writes with `--out-complex` and a `.geogram` `--out`) and
-additionally reads both files back and verifies that all attributes survived.
-
-### Measurements
-
-On the four meshes in `tests/testdata` (all structural checks pass):
-
-| mesh | tets | pieces | groups / cells | refined v / e / f / tets | volume error | hex elements without trajectory |
-|---|---|---|---|---|---|---|
-| fiveFine | 13492 | 89248 | 4418 / 4416 | 157021 / 407403 / 428881 / 836256 | 2.7e-15 | 2 edges, 1 face, 1 cell |
-| fiveadvanced | 13492 | 23846 | 96 / 96 | 34914 / 66348 / 79127 / 151796 | 4.4e-15 | **none** |
-| cylinderadvanced | 18461 | 37843 | 140 / 140 | 55832 / 111604 / 131471 / 256970 | 6.5e-15 | **none** |
-| sphere | 76 | 1475 | 224 / 216 | 2979 / 8307 / 8279 / 15392 | 3.8e-16 | 31 edges, 27 faces, 8 cells |
-
-"Volume error" is the relative difference between the volume of the input tets
-and the sum of the volumes of the pieces; it is the analogue of the area
-conservation of the quad layout export in `libQEx`. The few missing elements
-are the extractor's holes and the folds of the (very coarse) sphere map; they
-are reported as diagnostics rather than silently dropped. Details and the
-verification protocol are in
-[`PROGRESS_trajectory_export.md`](PROGRESS_trajectory_export.md).
 
 ## License
 
