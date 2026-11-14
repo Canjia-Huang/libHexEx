@@ -37,6 +37,10 @@ elif [ "$LANGUAGE" == "C++14" ]; then
   echo "Building with C++14";
   OPTIONS="$OPTIONS -DCMAKE_CXX_FLAGS='-std=c++14' "
   BUILDPATH="$BUILDPATH-cpp14"
+elif [ "$LANGUAGE" == "C++17" ]; then
+  echo "Building with C++17";
+  OPTIONS="$OPTIONS -DCMAKE_CXX_STANDARD=17 -DCMAKE_CXX_STANDARD_REQUIRED=ON"
+  BUILDPATH="$BUILDPATH-cpp17"
 fi
 
 #=====================================
@@ -46,15 +50,14 @@ NC='\033[0m'
 OUTPUT='\033[0;32m'
 WARNING='\033[0;93m'
 
-#clone OpenVolumeMesh
-if [ ! -d OpenVolueMesh ]; then
-  git clone https://graphics.rwth-aachen.de:9000/OpenVolumeMesh/OpenVolumeMesh --branch master
-else
-  cd OpenVolumeMesh
-  git fetch
-  git reset --hard origin/master
-  cd ..
-fi
+#=====================================
+# Fetch the third-party dependencies. OpenVolumeMesh and googletest are pinned
+# as git submodules in third_party/, so no separate OpenVolumeMesh clone (and no
+# unpinned "master" checkout) is needed anymore. Both commands are no-ops when
+# the submodules are already checked out, e.g. via GIT_SUBMODULE_STRATEGY.
+#=====================================
+git submodule sync --recursive
+git submodule update --init --recursive
 
 
 echo -e "${OUTPUT}"
