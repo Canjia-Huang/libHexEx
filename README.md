@@ -102,36 +102,40 @@ Executables go to `build/bin`, libraries to `build/lib`.
 does, except for the read-back verification):
 
 ```bash
-build/bin/hexex --in <input.hexex> [--out <hex.ovm>]
-                      [--out-refined <refined.geogram>] [--out-hex <hex.geogram>]
-                      [--out-trajectory <directory-or-prefix>]
+build/bin/hexex --in <input.hexex> --out <hex.ovm|hex.geogram> [--out-poly <poly.geogram>]
 ```
+
+The format of the hex mesh is chosen from the output file name:
+
+* `.ovm` is written with OpenVolumeMesh (vertices/edges/faces/cells, no extra
+  attributes);
+* every other extension is written with geogram, e.g. `.geogram`, `.mesh`,
+  `.obj`, `.ply`. Only `.geogram` keeps the cells *and* the trajectory
+  attributes; `.mesh` keeps the cells but not the attributes, and
+  `.obj`/`.ply`/`.stl` only the surface.
 
 | option | meaning |
 |---|---|
 | `-i,--in` | input tet mesh with a per-cell integer grid map (`.hexex`) |
-| `-o,--out` | extracted hex mesh in OpenVolumeMesh format |
-| `--out-refined` | the refined mesh (the trajectory of the extracted elements) as a geogram mesh with all information in attributes |
-| `--out-hex` | the extracted hex mesh as a geogram mesh with the trajectory attributes |
-| `--out-trajectory` | convenience: write both geogram meshes; a directory derives the names, anything else is a file name prefix |
-| `--refined-surface-only` | omit the refined tetrahedra (only vertices/edges/facets, smaller files) |
+| `-o,--out` | extracted hex mesh; the format is chosen from the extension (see above) |
+| `--out-poly,--o-poly` | the polygonal mesh (the trajectory of the extracted elements: the input tet mesh cut along all integer grid planes) as a geogram mesh, with the correspondence to the hex mesh in the attributes |
+| `--poly-surface-only` | omit the tetrahedra of the polygonal mesh (only vertices/edges/facets, smaller files) |
 | `--check` | check the trajectory layout (volume conservation, cracks, coverage) and report it |
 | `--simple-merge-position` | use the unoptimized merge positions |
 | `-v,--verbose` | print the extractor's progress output (quiet by default) |
 
-`--out` and the geogram outputs also accept a directory, in which case the file
-names are derived from the input mesh (`<input>_hex.ovm`,
-`<input>_refined.geogram`, `<input>_hex.geogram`). The trajectory layout is
-only computed when one of the geogram outputs or `--check` is requested. Run
-`build/bin/hexex --help` for the details.
+`--out` and `--out-poly` also accept a directory, in which case the file names
+are derived from the input mesh (`<input>_hex.ovm`, `<input>_poly.geogram`).
+The trajectory layout is only computed when `--out-poly`, `--check` or a
+non-`.ovm` `--out` is given. Run `build/bin/hexex --help` for the details.
 
 Example:
 
 ```bash
-build/bin/hexex --in tests/testdata/fiveadvanced.hexex --out-trajectory /tmp/fiveadvanced --check
+build/bin/hexex --in tests/testdata/fiveadvanced.hexex \
+    --out /tmp/fiveadvanced_hex.geogram \
+    --out-poly /tmp/fiveadvanced_poly.geogram --check
 ```
-
-writes `/tmp/fiveadvanced_refined.geogram` and `/tmp/fiveadvanced_hex.geogram`.
 
 ### Full verification demo
 
@@ -139,8 +143,9 @@ writes `/tmp/fiveadvanced_refined.geogram` and `/tmp/fiveadvanced_hex.geogram`.
 build/bin/export_trajectory tests/testdata/fiveadvanced.hexex /tmp/fiveadvanced
 ```
 
-does the same as `hexex --out-trajectory` and additionally reads both files
-back and verifies that all attributes survived.
+writes `<prefix>_refined.geogram` and `<prefix>_hex.geogram` (the same two
+meshes the CLI writes with `--out-poly` and a `.geogram` `--out`) and
+additionally reads both files back and verifies that all attributes survived.
 
 ### Measurements
 

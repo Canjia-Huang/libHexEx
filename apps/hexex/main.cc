@@ -22,16 +22,17 @@
  * hexex - command line application for HexEx.
  *
  * Reads a tetrahedral mesh with a per-cell integer grid map (.hexex), extracts
- * the hexahedral mesh and writes it in OpenVolumeMesh format. Optionally it
- * also writes the trajectories of the extracted elements - the refined mesh
- * and the hex mesh in geogram format, where every piece of information is kept
- * in mesh attributes.
+ * the hexahedral mesh and writes it. The format of the hex mesh is chosen from
+ * the output file name: `.ovm` is written with OpenVolumeMesh, every other
+ * extension with geogram (.geogram, .mesh, .obj, ...). Optionally the
+ * trajectories of the extracted elements - the refined mesh (the input tet mesh
+ * cut along all integer grid planes) and the hex mesh - are written as geogram
+ * meshes, where every piece of information is kept in mesh attributes.
  *
  * Command line:
  *
- *   hexex --in <input.hexex> [--out <output.ovm>]
- *         [--out-refined <refined.geogram>] [--out-hex <hex.geogram>]
- *         [--out-trajectory <directory-or-prefix>]
+ *   hexex --in <input.hexex> --out <hex.ovm|hex.geogram>
+ *         [--out-poly <poly.geogram>] [--check]
  *
  * @see HexEx::HexTrajectoryLayout, HexEx::GeogramBridge
  */
@@ -52,9 +53,10 @@
 
 #include <CLI/CLI.hpp>
 
+#include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <filesystem>
-#include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -71,6 +73,21 @@ std::string modelName(const std::string& path)
     const std::string filename = p.filename().string();
     const std::size_t pos = filename.find_last_of('.');
     return pos == std::string::npos ? filename : filename.substr(0, pos);
+}
+
+/// the lower case extension of a path, including the dot
+std::string lowerExtension(const std::string& path)
+{
+    std::string extension = std::filesystem::path(path).extension().string();
+    std::transform(extension.begin(), extension.end(), extension.begin(),
+                   [](unsigned char c) { return (char)std::tolower(c); });
+    return extension;
+}
+
+/// whether the file name asks for the OpenVolumeMesh format
+bool isOvmFile(const std::string& path)
+{
+    return lowerExtension(path) == ".ovm";
 }
 
 /**
@@ -162,9 +179,8 @@ int main(int argc, char** argv)
             "hexex - extract a hexahedral mesh from a tetrahedral mesh with an integer grid map\n"
             "Based on the original libHexEx command line tool (cmdline_tool): it extracts the hex "
             "mesh exactly as before and additionally records the trajectories of its vertices, "
-            "edges, facets and cells through the input tet mesh, which can be written as geogram "
-            "meshes with all information stored in mesh attributes (see --out-refined, --out-hex "
-            "and --out-trajectory).");
+            "edges, facets and cells through the input tet mesh, which are available as a "
+            "polygonal mesh with all information stored in mesh attributes (see --out-poly).");
     /*
      * Print the footer verbatim: CLI11's paragraph formatting would re-wrap it and
      * strip the indentation.
@@ -178,42 +194,36 @@ int main(int argc, char** argv)
 
     std::string inputFile;
     std::string outputFile;
-    std::string refinedFile;
-    std::string hexFile;
-    std::string trajectoryPath;
+    std::string polyFile;
 
     bool verbose = false;
     bool simpleMergePosition = false;
-    bool surfaceOnly = false;
+    bool polySurfaceOnly = false;
     bool check = false;
 
     app.add_option("--in,-i", inputFile,
             "Tetrahedral mesh with a per-cell integer grid map (.hexex)")->required()->check(CLI::ExistingFile);
     app.add_option("--out,-o", outputFile,
-            "Extracted hex mesh in OpenVolumeMesh format (.ovm; a directory derives the file name)");
+            "Extracted hex mesh. The format is chosen from the file name: .ovm uses "
+            "OpenVolumeMesh, every other extension is written with geogram. Only .geogram keeps "
+            "the cells and the trajectory attributes (.mesh keeps the cells but not the "
+            "attributes, .obj/.ply/.stl only the surface). A directory derives the file name.");
 #ifdef HEXEX_HAVE_GEOGRAM
-    app.add_option("--out-refined", refinedFile,
-            "Refined mesh (the trajectory of the extracted elements: the input tet mesh cut along "
-            "all integer grid planes) in geogram format with all information in mesh attributes");
-    app.add_option("--out-hex", hexFile,
-            "Extracted hex mesh in geogram format with the trajectory attributes");
-    app.add_option("--out-trajectory", trajectoryPath,
-            "Write both geogram meshes; a directory derives the file names, anything else is used "
-            "as a file name prefix");
+    app.add_option("--out-poly,--o-poly", polyFile,
+            "The polygonal mesh - the trajectory of the extracted elements, i.e. the input tet "
+            "mesh cut along all integer grid planes - in geogram format. Use .geogram to keep "
+            "the tetrahedra/cells and all attributes (a directory derives the file name).");
 #else
-    app.add_option("--out-refined", refinedFile,
-            "Refined mesh in geogram format (not available in this build)");
-    app.add_option("--out-hex", hexFile,
-            "Extracted hex mesh in geogram format (not available in this build)");
-    app.add_option("--out-trajectory", trajectoryPath,
-            "Write both geogram meshes (not available in this build)");
+    app.add_option("--out-poly,--o-poly", polyFile,
+            "The polygonal mesh (trajectory of the extracted elements) in geogram format "
+            "(not available in this build)");
 #endif
     app.add_flag("-v,--verbose", verbose, "Print the extractor's progress output");
     app.add_flag("--simple-merge-position", simpleMergePosition,
             "Use the unoptimized merge positions (faster, slightly different vertex positions)");
-    app.add_flag("--refined-surface-only", surfaceOnly,
-            "Omit the refined tetrahedra, i.e. write only the trajectories of the hex vertices, "
-            "edges and faces (smaller files)");
+    app.add_flag("--poly-surface-only", polySurfaceOnly,
+            "Omit the tetrahedra of the polygonal mesh, i.e. write only the trajectories of the "
+            "hex vertices, edges and faces (smaller files)");
     app.add_flag("--check,--validate", check,
             "Check the trajectory layout (volume conservation, cracks, coverage) and report it");
     app.set_version_flag("-V,--version", std::string(HEXEX_VERSION));
@@ -221,43 +231,23 @@ int main(int argc, char** argv)
     CLI11_PARSE(app, argc, argv);
 
 #ifndef HEXEX_HAVE_GEOGRAM
-    if (!refinedFile.empty() || !hexFile.empty() || !trajectoryPath.empty())
+    if (!polyFile.empty() || (!outputFile.empty() && !isOvmFile(outputFile)))
     {
-        std::cerr << "This HexEx build has no geogram support: --out-refined, --out-hex and "
-                     "--out-trajectory are unavailable. Configure with -DGEOGRAM_ROOT=<path> or "
-                     "-DHEXEX_WITH_GEOGRAM=ON."
+        std::cerr << "This HexEx build has no geogram support: only the OpenVolumeMesh format "
+                     "(.ovm) is available, and --out-poly is unavailable. Configure with "
+                     "-DGEOGRAM_ROOT=<path> or -DHEXEX_WITH_GEOGRAM=ON."
                   << std::endl;
         return 2;
     }
 #endif
 
     const std::string model = modelName(inputFile);
-
-    // --out-trajectory is a convenience for setting both geogram outputs
-    if (!trajectoryPath.empty())
-    {
-        if (std::filesystem::is_directory(trajectoryPath))
-        {
-            if (refinedFile.empty())
-                refinedFile = (std::filesystem::path(trajectoryPath) / (model + "_refined.geogram")).string();
-            if (hexFile.empty())
-                hexFile = (std::filesystem::path(trajectoryPath) / (model + "_hex.geogram")).string();
-        }
-        else
-        {
-            if (refinedFile.empty()) refinedFile = trajectoryPath + "_refined.geogram";
-            if (hexFile.empty()) hexFile = trajectoryPath + "_hex.geogram";
-        }
-    }
-
     outputFile = resolveOutput(outputFile, model, "_hex.ovm");
-    refinedFile = resolveOutput(refinedFile, model, "_refined.geogram");
-    hexFile = resolveOutput(hexFile, model, "_hex.geogram");
+    polyFile = resolveOutput(polyFile, model, "_poly.geogram");
 
-    if (outputFile.empty() && refinedFile.empty() && hexFile.empty() && !check)
+    if (outputFile.empty() && polyFile.empty() && !check)
     {
-        std::cerr << "Nothing to do: pass --out, --out-refined, --out-hex, --out-trajectory or --check."
-                  << std::endl;
+        std::cerr << "Nothing to do: pass --out, --out-poly or --check." << std::endl;
         return 2;
     }
 
@@ -281,11 +271,11 @@ int main(int argc, char** argv)
      * ------------------------------------------------------------------
      * Extract
      *
-     * The trajectory layout (which the geogram outputs and --check are built
-     * from) is only computed if it was asked for.
+     * The trajectory layout (which the polygonal output, the geogram hex
+     * output and --check are built from) is only computed if it was asked for.
      * ------------------------------------------------------------------
      */
-    const bool needLayout = !refinedFile.empty() || !hexFile.empty() || check;
+    const bool needLayout = !polyFile.empty() || check || (!outputFile.empty() && !isOvmFile(outputFile));
 
     HexExtractor extractor(tetMesh, parameters);
     extractor.extract();
@@ -308,12 +298,28 @@ int main(int argc, char** argv)
      */
     if (!outputFile.empty())
     {
-        OpenVolumeMesh::IO::FileManager fileManager;
-        if (!fileManager.writeFile(outputFile, hexMesh))
+        if (isOvmFile(outputFile))
         {
-            std::cerr << "Could not write " << outputFile << std::endl;
-            return 4;
+            OpenVolumeMesh::IO::FileManager fileManager;
+            if (!fileManager.writeFile(outputFile, hexMesh))
+            {
+                std::cerr << "Could not write " << outputFile << std::endl;
+                return 4;
+            }
         }
+#ifdef HEXEX_HAVE_GEOGRAM
+        else
+        {
+            std::vector<Vec3d> vertices;
+            TrajectoryMeshView connectivity;
+            makeTrajectoryMesh(hexMesh, vertices, connectivity);
+            if (!GeogramBridge::saveHexMesh(layout, vertices, connectivity, outputFile))
+            {
+                std::cerr << "Could not write " << outputFile << std::endl;
+                return 4;
+            }
+        }
+#endif
         std::cout << "wrote " << outputFile << " (" << hexMesh.n_cells() << " hex cells)" << std::endl;
     }
 
@@ -332,32 +338,17 @@ int main(int argc, char** argv)
     }
 
 #ifdef HEXEX_HAVE_GEOGRAM
-    if (!refinedFile.empty())
+    if (!polyFile.empty())
     {
-        if (!GeogramBridge::saveRefinedMesh(layout, refinedFile, !surfaceOnly))
+        if (!GeogramBridge::saveRefinedMesh(layout, polyFile, !polySurfaceOnly))
         {
-            std::cerr << "Could not write " << refinedFile << std::endl;
+            std::cerr << "Could not write " << polyFile << std::endl;
             return 4;
         }
-        std::cout << "wrote " << refinedFile << " (" << layout.n_pieces << " pieces, "
-                  << (surfaceOnly ? 0 : layout.n_refined_cells) << " refined tetrahedra, "
+        std::cout << "wrote " << polyFile << " (" << layout.n_pieces << " pieces, "
+                  << (polySurfaceOnly ? 0 : layout.n_refined_cells) << " refined tetrahedra, "
                   << layout.n_refined_facets << " facets, all information in mesh attributes)"
                   << std::endl;
-    }
-
-    if (!hexFile.empty())
-    {
-        std::vector<Vec3d> vertices;
-        TrajectoryMeshView connectivity;
-        makeTrajectoryMesh(hexMesh, vertices, connectivity);
-
-        if (!GeogramBridge::saveHexMesh(layout, vertices, connectivity, hexFile))
-        {
-            std::cerr << "Could not write " << hexFile << std::endl;
-            return 4;
-        }
-        std::cout << "wrote " << hexFile << " (" << hexMesh.n_cells()
-                  << " hex cells with the trajectory attributes)" << std::endl;
     }
 #endif
 
