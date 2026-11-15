@@ -133,10 +133,12 @@ struct HEXEX_EXPORT HexTrajectoryLayout
     struct Piece
     {
         int tet_cell = -1;               ///< the input tet
-        std::array<int, 3> cube;         ///< the cube's minimal corner, in the tet's parameter space
+        /// the cube's minimal corner, in the tet's parameter space; {-1,-1,-1}
+        /// for the filler cell of a degenerate tet (which has no trajectory)
+        std::array<int, 3> cube;
         double volume = 0;               ///< the volume in 3d space
         int hex_cell = -1;               ///< the corresponding hex mesh cell, -1
-        int group = -1;                  ///< the group of pieces that form one unit cube
+        int group = -1;                  ///< the group of pieces that form one unit cube, -2 for fillers
         int first_cell = -1;             ///< index of the first refined cell (tetrahedron)
         int n_cells = 0;                 ///< number of refined cells
         int first_vertex = -1;           ///< index of the first refined vertex
@@ -177,8 +179,10 @@ struct HEXEX_EXPORT HexTrajectoryLayout
     // ------------------------------------------------------------------
 
     size_t n_input_tets = 0;
-    /// input tets whose parametrization is degenerate (zero volume); they are skipped
+    /// input tets whose parametrization is degenerate (its parameter space image is flat)
     size_t n_degenerate_tets = 0;
+    /// degenerate tets that were filled with one cell each (without trajectory)
+    size_t n_filler_cells = 0;
     /// pieces (tet ∩ unit cube) with positive volume
     size_t n_pieces = 0;
     /// pieces whose volume is numerically zero and which were dropped

@@ -355,7 +355,8 @@ std::string HexTrajectoryLayout::describe() const
     std::ostringstream os;
 
     os << "input tetrahedra:                  " << n_input_tets
-       << " (degenerate: " << n_degenerate_tets << ")\n";
+       << " (degenerate parametrization: " << n_degenerate_tets
+       << ", filled without trajectory: " << n_filler_cells << ")\n";
     os << "pieces (tet x unit cube):          " << n_pieces
        << " (degenerate: " << n_degenerate_pieces
        << ", weld conflicts: " << n_vertex_weld_conflicts
@@ -580,14 +581,90 @@ void HexExtractor::buildTrajectoryLayout(HexTrajectoryLayout& layout, const Traj
             u[i] = parameter(ch, tetVertices[i]);
         }
 
+        const double tetVolume3D = std::fabs((p3[1] - p3[3]) | ((p3[2] - p3[3]) % (p3[0] - p3[3]))) / 6.0;
+        layout.volume_input_tets += tetVolume3D;
+
+        // A tet whose parametrization is degenerate (its parameter space image
+        // is flat) has no grid cells, but it still occupies volume in 3d. Fill
+        // it with a single cell (and its domain boundary facets) so that the
+        // complex stays a partition of the input mesh; it has no trajectory.
         const double tvParam = std::fabs((u[1] - u[3]) | ((u[2] - u[3]) % (u[0] - u[3]))) / 6.0;
         if (!(tvParam > 1e-9))
         {
             ++layout.n_degenerate_tets;
+            if (tetVolume3D > VOLUME_EPS)
+            {
+                const int pieceIndex = (int)layout.pieces.size();
+                HexTrajectoryLayout::Piece piece;
+                piece.tet_cell = ci;
+                piece.cube = std::array<int, 3>{{ -1, -1, -1 }};
+                piece.volume = tetVolume3D;
+                piece.group = -2; // not part of any unit cube
+                piece.first_vertex = (int)layout.vertex_position.size();
+                piece.first_cell = (int)layout.cell_vertices.size();
+                piece.n_cells = 1;
+                layout.pieces.push_back(piece);
+                pieceVertices.push_back(std::vector<LocalVertexInfo>());
+                layout.volume_pieces += tetVolume3D;
+                ++layout.n_filler_cells;
+
+                int ids[4];
+                for (int i = 0; i < 4; ++i)
+                {
+                    bool isNew = false;
+                    ids[i] = findOrAddVertex(p3[i], false, isNew);
+                    if (isNew)
+                    {
+                        layout.vertex_kind[ids[i]] = 3;
+                        layout.vertex_tet_vertex[ids[i]] = tetVertices[i].idx();
+                        layout.vertex_tet_cell[ids[i]] = ci;
+                    }
+                }
+
+                std::array<int, 4> cell = {{ ids[0], ids[1], ids[2], ids[3] }};
+                const Vec3d a = layout.vertex_position[cell[0]];
+                const Vec3d b = layout.vertex_position[cell[1]];
+                const Vec3d c = layout.vertex_position[cell[2]];
+                const Vec3d d = layout.vertex_position[cell[3]];
+                if (((b - a) | ((c - a) % (d - a))) < 0) std::swap(cell[2], cell[3]);
+                layout.cell_vertices.push_back(cell);
+                layout.cell_piece.push_back(pieceIndex);
+                layout.cell_tet_cell.push_back(ci);
+                layout.cell_hex_cell.push_back(-1);
+
+                // the domain boundary faces of the tet are not covered by any
+                // piece, so add them to keep the surface closed
+                for (auto hfh : inputMesh.cell(ch).halffaces())
+                {
+                    const FaceHandle fh = inputMesh.face_handle(hfh);
+                    if (!inputMesh.is_boundary(fh)) continue;
+                    const std::vector<VertexHandle> fvs = inputMesh.get_halfface_vertices(hfh);
+                    if (fvs.size() != 3) continue;
+                    int tri[3];
+                    for (int i = 0; i < 3; ++i)
+                    {
+                        tri[i] = -1;
+                        for (int k = 0; k < 4; ++k)
+                            if (tetVertices[k] == fvs[i]) { tri[i] = ids[k]; break; }
+                    }
+                    if (tri[0] < 0 || tri[1] < 0 || tri[2] < 0) continue;
+                    std::array<int, 3> key = {{ tri[0], tri[1], tri[2] }};
+                    std::sort(key.begin(), key.end());
+                    if (facetIndex.find(key) != facetIndex.end()) continue;
+                    const int facet = (int)layout.facet_vertices.size();
+                    facetIndex.insert(std::make_pair(key, facet));
+                    layout.facet_vertices.push_back(std::array<int, 3>{{ tri[0], tri[1], tri[2] }});
+                    layout.facet_hex_face.push_back(-1);
+                    layout.facet_tet_face.push_back(fh.idx());
+                    layout.facet_kind.push_back(0);
+                    layout.facet_piece_a.push_back(pieceIndex);
+                    layout.facet_piece_b.push_back(-1);
+                    facetCubePlaneAxis.push_back(-1);
+                    facetCubePlaneSide.push_back(-1);
+                }
+            }
             continue;
         }
-        const double tetVolume3D = std::fabs((p3[1] - p3[3]) | ((p3[2] - p3[3]) % (p3[0] - p3[3]))) / 6.0;
-        layout.volume_input_tets += tetVolume3D;
 
         Matrix4x4d paramTo3D =
                 getInverseParametrizationMatrix(p3[0], p3[1], p3[2], p3[3], u[0], u[1], u[2], u[3]);
@@ -1083,6 +1160,7 @@ void HexExtractor::buildTrajectoryLayout(HexTrajectoryLayout& layout, const Traj
     for (int seed = 0; seed < nPieces; ++seed)
     {
         if (grouped[seed]) continue;
+        if (layout.pieces[seed].group == -2) { grouped[seed] = 1; continue; }
         const int groupIndex = (int)layout.groups.size();
         HexTrajectoryLayout::Group group;
         group.corners.fill(-1);
