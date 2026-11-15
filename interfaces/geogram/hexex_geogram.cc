@@ -249,6 +249,14 @@ void GeogramBridge::toRefinedMesh(const HexTrajectoryLayout& layout, GEO::Mesh& 
             for (GEO::index_t i = 0; i < 4; ++i)
                 out.cells.set_vertex(first + c, i, (GEO::index_t)layout.cell_vertices[c][i]);
 
+        /*
+         * Build the cell adjacency: geogram does not derive it automatically,
+         * and the .geogram writer stores it (the loader skips connect() for
+         * that format). Sliver removal is disabled: no cell may be removed,
+         * because the attributes are indexed by cell.
+         */
+        out.cells.connect(false);
+
         GEO::Attribute<unsigned int> cellPiece(out.cells.attributes(), ATTR_PIECE);
         GEO::Attribute<unsigned int> cellTetCell(out.cells.attributes(), ATTR_TET_CELL);
         GEO::Attribute<int> cellHexCell(out.cells.attributes(), ATTR_HEX_CELL);
@@ -351,6 +359,14 @@ void GeogramBridge::toHexMesh(const HexTrajectoryLayout& layout,
             for (GEO::index_t i = 0; i < 8; ++i)
                 out.cells.set_vertex(first + c, i, (GEO::index_t)order[i]);
         }
+
+        /*
+         * Build the cell adjacency: geogram does not derive it automatically,
+         * and the .geogram writer stores it (the loader skips connect() for
+         * that format). Sliver removal is disabled: no cell may be removed,
+         * because the attributes are indexed by cell.
+         */
+        out.cells.connect(false);
         if (nFallbacks > 0)
             std::cerr << "GeogramBridge: warning: " << nFallbacks
                       << " hexahedra could not be reordered into geogram's vertex convention" << std::endl;

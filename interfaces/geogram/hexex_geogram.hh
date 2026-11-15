@@ -119,6 +119,11 @@ public:
      * @param withCells if false, the refined tetrahedra are omitted and only
      *        the vertices, edges and facets (the trajectories of the hex
      *        vertices, edges and faces) are written
+     *
+     * The cells are connected at the end (`out.cells.connect()`), because the
+     * .geogram writer stores the cell adjacency and its loader does not rebuild
+     * it. The facet adjacency is not computed: the facets are the piece
+     * boundaries, which are non-manifold where pieces meet.
      */
     static void toRefinedMesh(const HexTrajectoryLayout& layout, GEO::Mesh& out,
                               bool withCells = true);
@@ -131,6 +136,11 @@ public:
      * v5 = (1,0,1), v6 = (0,1,1), v7 = (1,1,1)`): the extractor's own order
      * comes from the local UV cubes of the parametrization and would make
      * geogram treat face diagonals as edges.
+     *
+     * The cells are connected at the end (`out.cells.connect()`), because the
+     * .geogram writer stores the cell adjacency and its loader does not rebuild
+     * it. The facet adjacency is not computed: the facets are the piece
+     * boundaries, which are non-manifold where pieces meet.
      *
      * @param layout the layout the hex mesh was extracted with
      * @param vertices the hex mesh's vertex positions
