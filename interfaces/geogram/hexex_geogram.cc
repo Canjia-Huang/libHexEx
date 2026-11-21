@@ -49,6 +49,7 @@ const char* const ATTR_HEX_EDGE_STEP = "hex_edge_step";
 const char* const ATTR_HEX_FACE = "hex_face";
 const char* const ATTR_HEX_CELL = "hex_cell";
 const char* const ATTR_GRID = "grid";
+const char* const ATTR_GRID_AXIS = "grid_axis";
 const char* const ATTR_PIECE = "piece";
 const char* const ATTR_BORDER = "border";
 const char* const ATTR_N_REFINED = "n_refined";
@@ -209,6 +210,7 @@ void GeogramBridge::toRefinedMesh(const HexTrajectoryLayout& layout, GEO::Mesh& 
     GEO::Attribute<int> edgeTetEdge(out.edges.attributes(), ATTR_TET_EDGE);
     GEO::Attribute<int> edgePiece(out.edges.attributes(), ATTR_PIECE);
     GEO::Attribute<unsigned int> edgeGrid(out.edges.attributes(), ATTR_GRID);
+    GEO::Attribute<int> edgeGridAxis(out.edges.attributes(), ATTR_GRID_AXIS);
 
     for (size_t e = 0; e < layout.edge_vertices.size(); ++e)
     {
@@ -220,6 +222,7 @@ void GeogramBridge::toRefinedMesh(const HexTrajectoryLayout& layout, GEO::Mesh& 
         edgeTetEdge[index] = layout.edge_tet_edge[e];
         edgePiece[index] = layout.edge_piece[e];
         edgeGrid[index] = layout.edge_on_grid[e] ? 1u : 0u;
+        edgeGridAxis[index] = layout.edge_grid_axis[e];
     }
 
     // ---- facets --------------------------------------------------------

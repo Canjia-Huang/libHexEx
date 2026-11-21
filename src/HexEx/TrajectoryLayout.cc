@@ -1476,6 +1476,7 @@ void HexExtractor::buildTrajectoryLayout(HexTrajectoryLayout& layout, const Traj
     layout.edge_tet_edge.assign(edgeVertices.size(), -1);
     layout.edge_piece = edgePiece;
     layout.edge_on_grid.assign(edgeVertices.size(), 0);
+    layout.edge_grid_axis.assign(edgeVertices.size(), -1);
 
     for (size_t e = 0; e < edgeVertices.size(); ++e)
     {
@@ -1488,6 +1489,7 @@ void HexExtractor::buildTrajectoryLayout(HexTrajectoryLayout& layout, const Traj
 
         const EdgeLocalInfo& info = localIt->second;
         layout.edge_on_grid[e] = 1;
+        layout.edge_grid_axis[e] = info.varying;
         layout.edge_piece[e] = info.piece;
 
         const HexTrajectoryLayout::Piece& piece = layout.pieces[info.piece];

@@ -117,6 +117,8 @@ void verifyRefinedRoundTrip(const std::string& filename, const HexTrajectoryLayo
     GEO::Attribute<int> edgeStep(mesh.edges.attributes(), "hex_edge_step");
     GEO::Attribute<int> edgePiece(mesh.edges.attributes(), "piece");
     GEO::Attribute<int> edgeTetEdge(mesh.edges.attributes(), "tet_edge");
+    GEO::Attribute<unsigned int> edgeGrid(mesh.edges.attributes(), "grid");
+    GEO::Attribute<int> edgeGridAxis(mesh.edges.attributes(), "grid_axis");
     GEO::Attribute<int> facetHexFace(mesh.facets.attributes(), "hex_face");
     GEO::Attribute<int> facetPiece(mesh.facets.attributes(), "piece");
     GEO::Attribute<int> facetTetFace(mesh.facets.attributes(), "tet_face");
@@ -125,7 +127,8 @@ void verifyRefinedRoundTrip(const std::string& filename, const HexTrajectoryLayo
     GEO::Attribute<unsigned int> cellPiece(mesh.cells.attributes(), "piece");
 
     check(vertexHexVertex.is_bound() && vertexGrid.is_bound(), "vertex attributes survived");
-    check(edgeHexEdge.is_bound() && edgeStep.is_bound() && edgePiece.is_bound() && edgeTetEdge.is_bound(),
+    check(edgeHexEdge.is_bound() && edgeStep.is_bound() && edgePiece.is_bound() && edgeTetEdge.is_bound() &&
+          edgeGrid.is_bound() && edgeGridAxis.is_bound(),
           "edge attributes survived");
     check(facetHexFace.is_bound() && facetPiece.is_bound() && facetTetFace.is_bound() && facetKind.is_bound(),
           "facet attributes survived");
@@ -144,6 +147,8 @@ void verifyRefinedRoundTrip(const std::string& filename, const HexTrajectoryLayo
         if (edgeStep[e] != layout.edge_hex_edge_step[e]) ++mismatches;
         if (edgePiece[e] != layout.edge_piece[e]) ++mismatches;
         if (edgeTetEdge[e] != layout.edge_tet_edge[e]) ++mismatches;
+        if ((edgeGrid[e] != 0) != (layout.edge_on_grid[e] != 0)) ++mismatches;
+        if (edgeGridAxis[e] != layout.edge_grid_axis[e]) ++mismatches;
     }
     for (GEO::index_t f = 0; f < mesh.facets.nb(); ++f)
     {

@@ -107,6 +107,13 @@ struct HEXEX_EXPORT HexTrajectoryLayout
     std::vector<int> edge_tet_edge;      ///< the input tet edge the edge lies on, -1
     std::vector<int> edge_piece;         ///< a piece incident to the edge, -1
     std::vector<unsigned char> edge_on_grid; ///< 1 if the edge lies on a grid line
+    /**
+     * The parameter axis (0, 1 or 2 = u, v or w) along which a grid edge runs,
+     * taken from the parameter space of the incident piece; -1 if the edge is
+     * not on a grid line. The parameter spaces of the tets differ by grid
+     * isomorphisms, so the value is local to the piece (see edge_piece).
+     */
+    std::vector<int> edge_grid_axis;
 
     /// triangular facets (3 vertex indices per facet)
     std::vector<std::array<int, 3> > facet_vertices;

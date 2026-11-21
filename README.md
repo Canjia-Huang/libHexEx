@@ -53,7 +53,7 @@ Writers: `demo/export_trajectory` (writes both meshes and verifies them by readi
 back) and the `HexEx::GeogramBridge` (`toRefinedMesh()`, `toHexMesh()`, `save()`), which
 stores *all* of the above in `GEO::Mesh` **attributes** (`kind`, `tet_vertex`, `tet_edge`,
 `tet_face`, `tet_cell`, `hex_vertex`, `hex_edge`, `hex_edge_step`, `hex_face`, `hex_cell`,
-`grid`, `piece`, `border`, `n_refined`, `n_pieces`), so exporting to `.geogram` loses
+`grid`, `grid_axis`, `piece`, `border`, `n_refined`, `n_pieces`), so exporting to `.geogram` loses
 nothing. Attributes that can be "not there" are `int` (holding -1), all others are
 `unsigned int`.
 
